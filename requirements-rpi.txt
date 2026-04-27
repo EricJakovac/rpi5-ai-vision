@@ -1,6 +1,6 @@
 # Inference (ARM64 kompatibilno s Python 3.11)
 onnxruntime>=1.17.0
-tflite-runtime>=2.14.0
+ai-edge-litert>=1.0.0
 
 # Web server
 fastapi>=0.104.0

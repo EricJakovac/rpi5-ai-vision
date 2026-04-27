@@ -14,7 +14,6 @@ sudo apt install -y \
     python3-venv \
     python3-dev \
     libopenblas-dev \
-    libatlas-base-dev \
     git
 
 # Venv s pristupom system paketima (picamera2, opencv)
