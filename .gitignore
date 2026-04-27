@@ -1,0 +1,19 @@
+# Operativni sustav
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Editori
+.vscode/
+.idea/
+*.sublime-*
+.project
+.classpath
+.settings/
+*.code-workspace

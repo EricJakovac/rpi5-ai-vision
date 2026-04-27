@@ -1,0 +1,6 @@
+# Automatski postavi LF za sve tekstualne fajlove
+* text=auto eol=lf
+
+# Specifični fajlovi
+*.{cmd,[cC][mM][dD]} text eol=crlf
+*.{bat,[bB][aA][tT]} text eol=crlf
