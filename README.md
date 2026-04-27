@@ -1,7 +1,7 @@
 # rpi5-ai-vision
 
 ## Opis projekta
-# Diplomski rad: Detekcija ljudi u realnom vremenu na Raspberry Pi 5 platformi
+### Diplomski rad: Detekcija ljudi u realnom vremenu na Raspberry Pi 5 platformi
 
 Ovaj projekt fokusira se na implementaciju, evaluaciju i optimizaciju suvremenih računalnih modela za detekciju objekata (ljudi) na **Raspberry Pi 5** računalu. Cilj rada je istražiti granice performansi *edge* uređaja koristeći različite arhitekture modela i tehnike kvantizacije.
 
@@ -55,11 +55,6 @@ Projekt je podijeljen u tri glavna segmenta:
 1.  **Inference Engine:** Obrada video streama u realnom vremenu, primjena NMS (*Non-Maximum Suppression*) i iscrtavanje bounding boxova.
 2.  **Web Dashboard:** Live stream putem WebSocketa s prikazom statistike performansi u realnom vremenu (grafovi latencije i FPS-a).
 3.  **Power Management:** Integracija PIR senzora koji aktivira sustav detekcije samo kada se detektira kretanje (ušteda energije i resursa).
-
-## Pokretanje
-```bash
-# Upute za pokretanje
-```
 
 ## Autor
 Eric Jakovac
