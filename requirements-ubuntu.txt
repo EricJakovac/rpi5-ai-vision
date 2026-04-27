@@ -3,6 +3,7 @@ ultralytics>=8.0.0
 onnx>=1.14.0
 onnxruntime>=1.17.0
 onnxsim>=0.4.35
+tensorflow-cpu>=2.21.0
 
 # Computer vision
 opencv-python>=4.8.0

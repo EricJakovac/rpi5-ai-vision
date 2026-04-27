@@ -19,44 +19,13 @@ datasets/
 *.onnx
 *.tflite
 
-# Rezultati benchmarka (opcionalno – možeš i trackati)
-ai/detection/benchmark/results/
-
-# Environment varijable
-.env
-.env.local
-
-# Jupyter
-.ipynb_checkpoints/
-*.ipynb
-
-# Razno
-*.csv
-*.h5
-EOF
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-venv/
-.venv/
-*.egg-info/
-dist/
-build/
-
-# ML modeli i dataseti (preveliki za git)
-ai/detection/models/raw/
-ai/detection/models/onnx/
-ai/detection/models/tflite/
-datasets/
-*.pt
-*.onnx
-*.tflite
-
 # Rezultati benchmarka 
 ai/detection/benchmark/results/
+
+# Model saved files
+*_saved_model/
+*.pb
+calibration_image_sample_data_*/
 
 # Environment varijable
 .env
