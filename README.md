@@ -5,8 +5,6 @@
 
 Ovaj projekt fokusira se na implementaciju, evaluaciju i optimizaciju suvremenih računalnih modela za detekciju objekata (ljudi) na **Raspberry Pi 5** računalu. Cilj rada je istražiti granice performansi *edge* uređaja koristeći različite arhitekture modela i tehnike kvantizacije.
 
----
-
 ## Tehnološki Stack
 
 * **Jezik:** Python 3.11
@@ -15,8 +13,6 @@ Ovaj projekt fokusira se na implementaciju, evaluaciju i optimizaciju suvremenih
 * **Backend:** FastAPI / Flask (Web Server & Streaming)
 * **Frontend:** HTML5, JavaScript (WebSockets, Chart.js)
 * **Hardware Control:** GPIOZero, lgpio (PIR senzor integracija)
-
----
 
 ## Hardverska Konfiguracija
 
@@ -28,8 +24,6 @@ Projekt se izvodi na maksimalno optimiziranom hardverskom setupu:
 | **Pohrana** | M.2 HAT+ s 256GB NVMe SSD (za maksimalan I/O throughput) |
 | **Kamera** | Camera Module 3 NoIR (podržava infracrveni spektar za noćni rad) |
 | **Senzor** | PIR senzor (pasivni infracrveni senzor za trigger detekcije) |
-
----
 
 ## 📊 Pregled Modela i Evaluacija
 
@@ -45,8 +39,6 @@ Središnji dio projekta je usporedba različitih obitelji modela kroz tri razine
 * **Performanse:** FPS (Sličice u sekundi), Latencija (ms).
 * **Resursi:** CPU opterećenje (%), RAM potrošnja (MB), Temperatura procesora (°C).
 * **Efikasnost:** mAP po FPS-u, mAP po veličini modela (MB).
-
----
 
 ## 🚀 Arhitektura Sustava
 
