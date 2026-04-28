@@ -9,6 +9,7 @@ import numpy as np
 import cv2
 import time
 from pathlib import Path
+from PIL import Image as PILImage
 
 MODEL_PATH = Path("ai/detection/models/onnx/yolov8n_fp32.onnx")
 IMAGE_SIZE = 640
@@ -66,17 +67,14 @@ def draw_detections(frame, detections, fps, inference_ms):
         x2 = int((cx + bw / 2) / IMAGE_SIZE * w)
         y2 = int((cy + bh / 2) / IMAGE_SIZE * h)
 
-        # Bounding box
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-        # Label
         label = f"Person {conf:.2f}"
         (lw, lh), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
         cv2.rectangle(frame, (x1, y1 - lh - 8), (x1 + lw, y1), (0, 255, 0), -1)
         cv2.putText(frame, label, (x1, y1 - 4),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
 
-    # Info overlay
     cv2.rectangle(frame, (0, 0), (280, 80), (0, 0, 0), -1)
     cv2.putText(frame, f"FPS: {fps:.1f}", (10, 25),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
@@ -92,14 +90,23 @@ def main():
     print("=== Live Inference Preview ===")
     print("Pritisni 'q' za izlaz")
 
-    # Kamera
+    # Kamera – puna rezolucija bez zumiranja
     picam2 = Picamera2()
     config = picam2.create_preview_configuration(
-        main={"size": (IMAGE_SIZE, IMAGE_SIZE), "format": "RGB888"}
+        main={"size": (1280, 720), "format": "RGB888"}
     )
     picam2.configure(config)
     picam2.start()
     time.sleep(2)
+
+    # Zamrzni AWB gains za konzistentne boje
+    metadata = picam2.capture_metadata()
+    gains = metadata["ColourGains"]
+    picam2.set_controls({
+        "AwbEnable": False,
+        "ColourGains": gains
+    })
+    time.sleep(0.5)
     print("✅ Kamera pokrenuta")
 
     # Model
@@ -113,18 +120,22 @@ def main():
     input_name = session.get_inputs()[0].name
     print(f"✅ Model učitan: {MODEL_PATH.name}")
 
-    # FPS tracking
     fps = 0
     frame_count = 0
     fps_start = time.time()
 
     while True:
-        # Capture
+        # Capture originalni frame za prikaz
         frame = picam2.capture_array()
+        display_frame = frame.copy()
 
-        # Preprocess
-        img = frame.astype(np.float32) / 255.0
-        inp = np.expand_dims(img.transpose(2, 0, 1), 0)
+        # Resize samo za inference
+        img_resized = np.array(
+            PILImage.fromarray(frame).resize((IMAGE_SIZE, IMAGE_SIZE)),
+            dtype=np.float32
+        )
+        img_resized /= 255.0
+        inp = np.expand_dims(img_resized.transpose(2, 0, 1), 0)
 
         # Inference
         t0 = time.perf_counter()
@@ -140,12 +151,11 @@ def main():
             fps = 10 / (time.time() - fps_start)
             fps_start = time.time()
 
-        # Crtaj i prikaži
-        display = draw_detections(frame.copy(), detections, fps, inference_ms)
+        # Prikaz
+        display = draw_detections(display_frame, detections, fps, inference_ms)
         display_bgr = cv2.cvtColor(display, cv2.COLOR_RGB2BGR)
         cv2.imshow("RPi5 - Person Detection", display_bgr)
 
-        # Izlaz na 'q'
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
