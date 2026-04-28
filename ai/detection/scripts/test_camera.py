@@ -7,7 +7,7 @@ from picamera2 import Picamera2
 from pathlib import Path
 import time
 
-OUTPUT_DIR = Path(__file__).parent.parent / "detection" / "benchmark" / "results" / "camera_test"
+OUTPUT_DIR = Path(__file__).parent.parent / "becnhmark" / "results" / "camera_test"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def test_camera():
@@ -23,8 +23,8 @@ def test_camera():
     picam2.start()
     
     # Warmup
-    print("Warmup kamere (2 sekunde)...")
-    time.sleep(2)
+    print("Warmup kamere (5 sekundi)...")
+    time.sleep(5)
     
     # Snimi 5 frameova i izmjeri FPS
     print("Snimam frameove...")
