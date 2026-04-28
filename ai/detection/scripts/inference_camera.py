@@ -13,7 +13,7 @@ from PIL import Image as PILImage
 
 MODEL_PATH = Path("ai/detection/models/onnx/yolov8n_fp32.onnx")
 IMAGE_SIZE = 640
-CONF_THRESHOLD = 0.5
+CONF_THRESHOLD = 0.7
 IOU_THRESHOLD = 0.45
 
 
@@ -93,20 +93,12 @@ def main():
     # Kamera – puna rezolucija bez zumiranja
     picam2 = Picamera2()
     config = picam2.create_preview_configuration(
-        main={"size": (1280, 720), "format": "RGB888"}
+        main={"size": (1280, 720), "format": "RGB888"},
+        controls={"AwbMode":1} #Auto AWB
     )
     picam2.configure(config)
     picam2.start()
     time.sleep(2)
-
-    # Zamrzni AWB gains za konzistentne boje
-    metadata = picam2.capture_metadata()
-    gains = metadata["ColourGains"]
-    picam2.set_controls({
-        "AwbEnable": False,
-        "ColourGains": gains
-    })
-    time.sleep(0.5)
     print("✅ Kamera pokrenuta")
 
     # Model
