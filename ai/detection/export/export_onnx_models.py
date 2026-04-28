@@ -1,7 +1,5 @@
 """
 Export YOLOv8 modela u ONNX format.
-Pokreći na Ubuntuu.
-TFLite export se radi posebno na RPi-u.
 """
 
 from ultralytics import YOLO
@@ -14,6 +12,8 @@ MODELS_ONNX.mkdir(parents=True, exist_ok=True)
 MODELS = [
     "yolov8n.pt",
     "yolov8s.pt",
+    "yolov10n.pt",
+    "rtdetr-l.pt",
 ]
 
 IMAGE_SIZE = 640

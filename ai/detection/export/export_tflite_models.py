@@ -1,7 +1,5 @@
 """
 Export YOLOv8 modela u TFLite format.
-POKREĆI NA RPi-u, ne na Ubuntuu!
-Zahtijeva: ai-edge-litert, ultralytics
 """
 
 from ultralytics import YOLO
@@ -14,9 +12,10 @@ MODELS_TFLITE.mkdir(parents=True, exist_ok=True)
 MODELS = [
     "yolov8n.pt",
     "yolov8s.pt",
+    "yolov10n.pt",
 ]
 
-IMAGE_SIZE = 320  # Manja rezolucija za RPi, 640 je presporo za TFLite export
+IMAGE_SIZE = 640
 
 def export_tflite(model_name: str):
     print(f"\n{'='*50}")

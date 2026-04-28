@@ -1,0 +1,50 @@
+[
+  {
+    "model": "yolov10n_fp32.tflite",
+    "format": "tflite",
+    "image_size": 320,
+    "num_iterations": 100,
+    "avg_latency_ms": 136.22,
+    "min_latency_ms": 130.01,
+    "max_latency_ms": 160.73,
+    "p95_latency_ms": 151.38,
+    "avg_fps": 7.34,
+    "ram_model_mb": 68.9,
+    "ram_peak_mb": 129.7,
+    "temp_before_c": 52.9,
+    "temp_after_c": 58.95,
+    "timestamp": "2026-04-28T11:00:03.191556"
+  },
+  {
+    "model": "yolov8n_fp32.tflite",
+    "format": "tflite",
+    "image_size": 320,
+    "num_iterations": 100,
+    "avg_latency_ms": 129.09,
+    "min_latency_ms": 124.54,
+    "max_latency_ms": 150.84,
+    "p95_latency_ms": 141.73,
+    "avg_fps": 7.75,
+    "ram_model_mb": 68.5,
+    "ram_peak_mb": 135.5,
+    "temp_before_c": 58.4,
+    "temp_after_c": 61.15,
+    "timestamp": "2026-04-28T11:00:17.497686"
+  },
+  {
+    "model": "yolov8s_fp32.tflite",
+    "format": "tflite",
+    "image_size": 320,
+    "num_iterations": 100,
+    "avg_latency_ms": 343.81,
+    "min_latency_ms": 332.7,
+    "max_latency_ms": 367.44,
+    "p95_latency_ms": 354.46,
+    "avg_fps": 2.91,
+    "ram_model_mb": 157.7,
+    "ram_peak_mb": 230.7,
+    "temp_before_c": 62.25,
+    "temp_after_c": 65.0,
+    "timestamp": "2026-04-28T11:00:55.445629"
+  }
+]
