@@ -1,234 +1,157 @@
 """
-Inference s kamerom u realnom vremenu.
-Mjeri realne FPS-ove na pravim slikama.
-Pokreći na RPi-u.
+Live preview inference s kamerom i prikazom detekcija.
+Pokreći na RPi-u s aktivnim displayem.
 """
 
+from picamera2 import Picamera2
 import onnxruntime as ort
 import numpy as np
+import cv2
 import time
-import psutil
-import json
-from picamera2 import Picamera2
 from pathlib import Path
-from datetime import datetime
 
-BASE_DIR = Path(__file__).parent.parent
-MODELS_ONNX = BASE_DIR / "models" / "onnx"
-RESULTS_DIR = BASE_DIR / "benchmark" / "results"
-RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-
-NUM_WARMUP = 10
-NUM_ITERATIONS = 100
+MODEL_PATH = Path("ai/detection/models/onnx/yolov8n_fp32.onnx")
 IMAGE_SIZE = 640
 CONF_THRESHOLD = 0.5
+IOU_THRESHOLD = 0.45
 
 
-def get_cpu_temperature() -> float:
-    try:
-        temp_path = Path("/sys/class/thermal/thermal_zone0/temp")
-        if temp_path.exists():
-            return float(temp_path.read_text().strip()) / 1000.0
-    except Exception:
-        pass
-    return -1.0
+def nms(boxes, scores, iou_threshold):
+    if len(boxes) == 0:
+        return []
+    x1 = boxes[:, 0] - boxes[:, 2] / 2
+    y1 = boxes[:, 1] - boxes[:, 3] / 2
+    x2 = boxes[:, 0] + boxes[:, 2] / 2
+    y2 = boxes[:, 1] + boxes[:, 3] / 2
+    areas = (x2 - x1) * (y2 - y1)
+    order = scores.argsort()[::-1]
+    keep = []
+    while order.size > 0:
+        i = order[0]
+        keep.append(i)
+        xx1 = np.maximum(x1[i], x1[order[1:]])
+        yy1 = np.maximum(y1[i], y1[order[1:]])
+        xx2 = np.minimum(x2[i], x2[order[1:]])
+        yy2 = np.minimum(y2[i], y2[order[1:]])
+        w = np.maximum(0, xx2 - xx1)
+        h = np.maximum(0, yy2 - yy1)
+        inter = w * h
+        iou = inter / (areas[i] + areas[order[1:]] - inter)
+        order = order[np.where(iou <= iou_threshold)[0] + 1]
+    return keep
 
 
-def preprocess_frame(frame: np.ndarray, size: int) -> np.ndarray:
-    """Pripremi frame za inference – resize, normalize, transpose."""
-    # Resize
-    from PIL import Image
-    img = Image.fromarray(frame)
-    img = img.resize((size, size))
-    img_array = np.array(img, dtype=np.float32)
-    
-    # Normalize 0-255 → 0-1
-    img_array /= 255.0
-    
-    # HWC → CHW → BCHW
-    img_array = img_array.transpose(2, 0, 1)
-    img_array = np.expand_dims(img_array, axis=0)
-    
-    return img_array
-
-
-def postprocess_output(output: np.ndarray, conf_threshold: float) -> list:
-    """Izvuci detekcije osoba iz YOLO outputa."""
-    predictions = output[0]  # (1, 84, 8400) → (84, 8400)
-    if len(predictions.shape) == 3:
-        predictions = predictions[0]
-    
-    predictions = predictions.T  # (8400, 84)
-    
-    detections = []
-    for pred in predictions:
-        scores = pred[4:]
-        class_id = np.argmax(scores)
-        confidence = scores[class_id]
-        
-        # Class 0 = person u COCO
-        if class_id == 0 and confidence > conf_threshold:
-            cx, cy, w, h = pred[:4]
-            detections.append({
-                "confidence": float(confidence),
-                "bbox": [float(cx), float(cy), float(w), float(h)]
-            })
-    
-    return detections
-
-
-def benchmark_with_camera(model_path: Path, picam2: Picamera2) -> dict:
-    print(f"\n{'='*50}")
-    print(f"Model: {model_path.name}")
-    print(f"{'='*50}")
-
-    ram_before = get_ram_usage_mb() if hasattr(psutil.Process(), 'memory_info') else 0
-
-    sess_options = ort.SessionOptions()
-    sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-    sess_options.intra_op_num_threads = 4
-
-    session = ort.InferenceSession(
-        str(model_path),
-        sess_options=sess_options,
-        providers=["CPUExecutionProvider"]
+def detect_persons(output, conf_threshold, iou_threshold):
+    predictions = output[0].T  # (8400, 84)
+    persons_mask = (
+        (np.argmax(predictions[:, 4:], axis=1) == 0) &
+        (np.max(predictions[:, 4:], axis=1) > conf_threshold)
     )
-
-    input_name = session.get_inputs()[0].name
-    ram_after = get_ram_usage_mb() if hasattr(psutil.Process(), 'memory_info') else 0
-
-    # Warmup
-    print(f"Warmup ({NUM_WARMUP} iteracija)...")
-    for _ in range(NUM_WARMUP):
-        frame = picam2.capture_array()
-        inp = preprocess_frame(frame, IMAGE_SIZE)
-        session.run(None, {input_name: inp})
-
-    # Benchmark
-    print(f"Benchmark ({NUM_ITERATIONS} iteracija)...")
-    temp_before = get_cpu_temperature()
-    
-    latencies_capture = []
-    latencies_preprocess = []
-    latencies_inference = []
-    total_persons_detected = 0
-
-    for i in range(NUM_ITERATIONS):
-        # Capture
-        t0 = time.perf_counter()
-        frame = picam2.capture_array()
-        t1 = time.perf_counter()
-
-        # Preprocess
-        inp = preprocess_frame(frame, IMAGE_SIZE)
-        t2 = time.perf_counter()
-
-        # Inference
-        output = session.run(None, {input_name: inp})
-        t3 = time.perf_counter()
-
-        latencies_capture.append((t1 - t0) * 1000)
-        latencies_preprocess.append((t2 - t1) * 1000)
-        latencies_inference.append((t3 - t2) * 1000)
-
-        # Detekcije
-        detections = postprocess_output(output[0], CONF_THRESHOLD)
-        total_persons_detected += len(detections)
-
-        if (i + 1) % 25 == 0:
-            avg_inf = np.mean(latencies_inference[-25:])
-            print(f"  {i+1}/{NUM_ITERATIONS} – inference FPS: {1000/avg_inf:.1f}")
-
-    temp_after = get_cpu_temperature()
-
-    # Ukupna latencija = capture + preprocess + inference
-    total_latencies = [
-        latencies_capture[i] + latencies_preprocess[i] + latencies_inference[i]
-        for i in range(NUM_ITERATIONS)
-    ]
-
-    results = {
-        "model": model_path.name,
-        "format": "onnx",
-        "image_size": IMAGE_SIZE,
-        "num_iterations": NUM_ITERATIONS,
-        "source": "camera",
-        # Inference samo
-        "avg_inference_ms": round(float(np.mean(latencies_inference)), 2),
-        "avg_inference_fps": round(1000 / float(np.mean(latencies_inference)), 2),
-        # Ukupno (capture + preprocess + inference)
-        "avg_total_ms": round(float(np.mean(total_latencies)), 2),
-        "avg_total_fps": round(1000 / float(np.mean(total_latencies)), 2),
-        "p95_total_ms": round(float(np.percentile(total_latencies, 95)), 2),
-        # Ostalo
-        "avg_capture_ms": round(float(np.mean(latencies_capture)), 2),
-        "avg_preprocess_ms": round(float(np.mean(latencies_preprocess)), 2),
-        "ram_model_mb": round(ram_after - ram_before, 1),
-        "avg_persons_detected": round(total_persons_detected / NUM_ITERATIONS, 2),
-        "temp_before_c": temp_before,
-        "temp_after_c": temp_after,
-        "timestamp": datetime.now().isoformat(),
-    }
-
-    print(f"\n📊 Rezultati:")
-    print(f"  Inference FPS:  {results['avg_inference_fps']:.1f}")
-    print(f"  Ukupni FPS:     {results['avg_total_fps']:.1f}")
-    print(f"  Capture:        {results['avg_capture_ms']:.1f}ms")
-    print(f"  Preprocess:     {results['avg_preprocess_ms']:.1f}ms")
-    print(f"  Inference:      {results['avg_inference_ms']:.1f}ms")
-    print(f"  Avg osoba:      {results['avg_persons_detected']:.1f}")
-
-    return results
+    persons = predictions[persons_mask]
+    if len(persons) == 0:
+        return []
+    boxes = persons[:, :4]
+    scores = np.max(persons[:, 4:], axis=1)
+    keep = nms(boxes, scores, iou_threshold)
+    return [(persons[i, :4], float(np.max(persons[i, 4:]))) for i in keep]
 
 
-def get_ram_usage_mb() -> float:
-    process = psutil.Process()
-    return process.memory_info().rss / 1024 / 1024
+def draw_detections(frame, detections, fps, inference_ms):
+    h, w = frame.shape[:2]
+
+    for bbox, conf in detections:
+        cx, cy, bw, bh = bbox
+        x1 = int((cx - bw / 2) / IMAGE_SIZE * w)
+        y1 = int((cy - bh / 2) / IMAGE_SIZE * h)
+        x2 = int((cx + bw / 2) / IMAGE_SIZE * w)
+        y2 = int((cy + bh / 2) / IMAGE_SIZE * h)
+
+        # Bounding box
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+        # Label
+        label = f"Person {conf:.2f}"
+        (lw, lh), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+        cv2.rectangle(frame, (x1, y1 - lh - 8), (x1 + lw, y1), (0, 255, 0), -1)
+        cv2.putText(frame, label, (x1, y1 - 4),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+
+    # Info overlay
+    cv2.rectangle(frame, (0, 0), (280, 80), (0, 0, 0), -1)
+    cv2.putText(frame, f"FPS: {fps:.1f}", (10, 25),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+    cv2.putText(frame, f"Inference: {inference_ms:.0f}ms", (10, 50),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+    cv2.putText(frame, f"Osobe: {len(detections)}", (10, 75),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+    return frame
 
 
 def main():
-    print("🚀 Camera Inference Benchmark – RPi 5")
-    print(f"ORT verzija: {ort.__version__}")
+    print("=== Live Inference Preview ===")
+    print("Pritisni 'q' za izlaz")
 
-    # Inicijaliziraj kameru
-    print("\nPokrećem kameru...")
+    # Kamera
     picam2 = Picamera2()
     config = picam2.create_preview_configuration(
         main={"size": (IMAGE_SIZE, IMAGE_SIZE), "format": "RGB888"}
     )
     picam2.configure(config)
     picam2.start()
-    time.sleep(2)  # AWB warmup
+    time.sleep(2)
     print("✅ Kamera pokrenuta")
 
-    models = sorted(MODELS_ONNX.glob("*.onnx"))
-    if not models:
-        print(f"❌ Nema ONNX modela u {MODELS_ONNX}")
-        picam2.stop()
-        return
+    # Model
+    sess_options = ort.SessionOptions()
+    sess_options.intra_op_num_threads = 4
+    session = ort.InferenceSession(
+        str(MODEL_PATH),
+        sess_options=sess_options,
+        providers=["CPUExecutionProvider"]
+    )
+    input_name = session.get_inputs()[0].name
+    print(f"✅ Model učitan: {MODEL_PATH.name}")
 
-    print(f"Modeli: {[m.name for m in models]}")
+    # FPS tracking
+    fps = 0
+    frame_count = 0
+    fps_start = time.time()
 
-    all_results = []
-    for model_path in models:
-        result = benchmark_with_camera(model_path, picam2)
-        all_results.append(result)
+    while True:
+        # Capture
+        frame = picam2.capture_array()
+
+        # Preprocess
+        img = frame.astype(np.float32) / 255.0
+        inp = np.expand_dims(img.transpose(2, 0, 1), 0)
+
+        # Inference
+        t0 = time.perf_counter()
+        output = session.run(None, {input_name: inp})
+        inference_ms = (time.perf_counter() - t0) * 1000
+
+        # Detekcije
+        detections = detect_persons(output[0], CONF_THRESHOLD, IOU_THRESHOLD)
+
+        # FPS
+        frame_count += 1
+        if frame_count % 10 == 0:
+            fps = 10 / (time.time() - fps_start)
+            fps_start = time.time()
+
+        # Crtaj i prikaži
+        display = draw_detections(frame.copy(), detections, fps, inference_ms)
+        display_bgr = cv2.cvtColor(display, cv2.COLOR_RGB2BGR)
+        cv2.imshow("RPi5 - Person Detection", display_bgr)
+
+        # Izlaz na 'q'
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
     picam2.stop()
-
-    # Spremi rezultate
-    output_file = RESULTS_DIR / f"camera_onnx_benchmark_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    with open(output_file, "w") as f:
-        json.dump(all_results, f, indent=2)
-
-    print(f"\n✅ Rezultati spremljeni: {output_file}")
-
-    # Usporedna tablica
-    print(f"\n{'='*65}")
-    print(f"{'Model':<30} {'Inf.FPS':>8} {'Tot.FPS':>8} {'Osoba':>6}")
-    print(f"{'='*65}")
-    for r in all_results:
-        print(f"{r['model']:<30} {r['avg_inference_fps']:>8.1f} {r['avg_total_fps']:>8.1f} {r['avg_persons_detected']:>6.1f}")
+    cv2.destroyAllWindows()
+    print("Završeno.")
 
 
 if __name__ == "__main__":
