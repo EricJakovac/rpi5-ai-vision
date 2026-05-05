@@ -35,3 +35,5 @@ datasets/
 # Razno
 *.csv
 *.h5
+.lgd-*
+.claude/
