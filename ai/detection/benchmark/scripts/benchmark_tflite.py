@@ -48,8 +48,7 @@ def benchmark_model(model_path: Path) -> dict:
     ram_before = get_ram_usage_mb()
 
     interpreter = Interpreter(
-        model_path=str(model_path),
-        num_threads=4  # RPi 5 ima 4 jezgre
+        model_path=str(model_path), num_threads=4  # RPi 5 ima 4 jezgre
     )
     interpreter.allocate_tensors()
 
@@ -60,8 +59,8 @@ def benchmark_model(model_path: Path) -> dict:
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
 
-    input_shape = input_details[0]['shape']
-    input_dtype = input_details[0]['dtype']
+    input_shape = input_details[0]["shape"]
+    input_dtype = input_details[0]["dtype"]
 
     print(f"Input shape: {input_shape}")
     print(f"Input dtype: {input_dtype}")
@@ -73,7 +72,7 @@ def benchmark_model(model_path: Path) -> dict:
     # Warmup
     print(f"Warmup ({NUM_WARMUP} iteracija)...")
     for _ in range(NUM_WARMUP):
-        interpreter.set_tensor(input_details[0]['index'], dummy_input)
+        interpreter.set_tensor(input_details[0]["index"], dummy_input)
         interpreter.invoke()
 
     # Benchmark
@@ -83,13 +82,15 @@ def benchmark_model(model_path: Path) -> dict:
 
     for i in range(NUM_ITERATIONS):
         start = time.perf_counter()
-        interpreter.set_tensor(input_details[0]['index'], dummy_input)
+        interpreter.set_tensor(input_details[0]["index"], dummy_input)
         interpreter.invoke()
         end = time.perf_counter()
         latencies.append((end - start) * 1000)
 
         if (i + 1) % 25 == 0:
-            print(f"  {i + 1}/{NUM_ITERATIONS} – trenutni FPS: {1000/latencies[-1]:.1f}")
+            print(
+                f"  {i + 1}/{NUM_ITERATIONS} – trenutni FPS: {1000/latencies[-1]:.1f}"
+            )
 
     temp_after = get_cpu_temperature()
     ram_peak = get_ram_usage_mb()
@@ -132,31 +133,41 @@ def main():
     print(f"Broj jezgri: {psutil.cpu_count()}")
     print(f"Ukupni RAM: {psutil.virtual_memory().total / 1024 / 1024:.0f} MB")
 
-    models = sorted(MODELS_TFLITE.glob("*.tflite"))
-    if not models:
+    # Pronađi modele u fp32 i int8 podfolderu
+    all_models = []
+    for subfolder in ["fp32", "int8"]:
+        folder = MODELS_TFLITE / subfolder
+        if folder.exists():
+            all_models.extend(sorted(folder.glob("*.tflite")))
+
+    if not all_models:
         print(f"❌ Nema TFLite modela u {MODELS_TFLITE}")
         return
 
-    print(f"\nPronađeni modeli: {[m.name for m in models]}")
+    print(f"\nPronađeni modeli: {[m.name for m in all_models]}")
 
     all_results = []
-    for model_path in models:
+    for model_path in all_models:
         result = benchmark_model(model_path)
+        result["precision"] = "int8" if "int8" in model_path.name else "fp32"
         all_results.append(result)
 
-    # Spremi rezultate
-    output_file = RESULTS_DIR / f"tflite_benchmark_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    output_file = (
+        RESULTS_DIR
+        / f"tflite_benchmark_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    )
     with open(output_file, "w") as f:
         json.dump(all_results, f, indent=2)
 
     print(f"\n✅ Rezultati spremljeni: {output_file}")
 
-    # Usporedna tablica
-    print(f"\n{'='*60}")
-    print(f"{'Model':<35} {'FPS':>8} {'Latency':>10} {'RAM':>8}")
-    print(f"{'='*60}")
+    print(f"\n{'='*65}")
+    print(f"{'Model':<35} {'Precision':>10} {'FPS':>8} {'Latency':>10}")
+    print(f"{'='*65}")
     for r in all_results:
-        print(f"{r['model']:<35} {r['avg_fps']:>8.1f} {r['avg_latency_ms']:>9.1f}ms {r['ram_model_mb']:>7.1f}MB")
+        print(
+            f"{r['model']:<35} {r['precision']:>10} {r['avg_fps']:>8.1f} {r['avg_latency_ms']:>9.1f}ms"
+        )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,55 @@
+"""
+Export YOLOv8 modela u ONNX FP32 format.
+"""
+from ultralytics import YOLO
+from pathlib import Path
+
+BASE_DIR = Path(__file__).parent.parent
+MODELS_ONNX_FP32 = BASE_DIR / "models" / "onnx" / "fp32"
+MODELS_ONNX_FP32.mkdir(parents=True, exist_ok=True)
+
+MODELS = [
+    "yolov8n.pt",
+    "yolov8s.pt",
+    "yolov10n.pt",
+    "rtdetr-l.pt",
+]
+
+IMAGE_SIZE = 640
+
+
+def export_onnx_fp32(model_name: str):
+    print(f"\n{'='*50}")
+    print(f"Exportam FP32: {model_name}")
+    print(f"{'='*50}")
+
+    dst = MODELS_ONNX_FP32 / f"{model_name.replace('.pt', '')}_fp32.onnx"
+
+    # Preskoci ako vec postoji
+    if dst.exists():
+        print(f"⏭️  Već postoji: {dst.name} – preskačem")
+        return
+
+    model = YOLO(model_name)
+
+    print("\nExport ONNX FP32...")
+    onnx_path = model.export(
+        format="onnx",
+        imgsz=IMAGE_SIZE,
+        simplify=True,
+        dynamic=False,
+    )
+
+    src = Path(onnx_path)
+    src.rename(dst)
+    print(f"✅ Spremljeno: {dst} ({dst.stat().st_size / 1024 / 1024:.1f} MB)")
+
+
+if __name__ == "__main__":
+    for model_name in MODELS:
+        export_onnx_fp32(model_name)
+
+    print(f"\n✅ Export završen!")
+    print(f"\nFajlovi u {MODELS_ONNX_FP32}:")
+    for f in sorted(MODELS_ONNX_FP32.glob("*.onnx")):
+        print(f"  {f.name} – {f.stat().st_size / 1024 / 1024:.1f} MB")

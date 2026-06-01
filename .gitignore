@@ -11,9 +11,7 @@ dist/
 build/
 
 # ML modeli i dataseti (preveliki za git)
-ai/detection/models/raw/
-ai/detection/models/onnx/
-ai/detection/models/tflite/
+ai/detection/models
 datasets/
 *.pt
 *.onnx

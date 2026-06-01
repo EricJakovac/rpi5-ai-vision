@@ -1,49 +1,53 @@
 """
-Export YOLOv8 modela u ONNX format.
+Export YOLOv8 modela u TFLite format.
 """
 
 from ultralytics import YOLO
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent.parent
-MODELS_ONNX = BASE_DIR / "models" / "onnx"
-MODELS_ONNX.mkdir(parents=True, exist_ok=True)
+MODELS_TFLITE = BASE_DIR / "models" / "tflite" / "fp32"
+MODELS_TFLITE.mkdir(parents=True, exist_ok=True)
 
 MODELS = [
     "yolov8n.pt",
     "yolov8s.pt",
     "yolov10n.pt",
-    "rtdetr-l.pt",
 ]
 
 IMAGE_SIZE = 640
 
-def export_onnx(model_name: str):
+def export_tflite(model_name: str):
     print(f"\n{'='*50}")
     print(f"Exportam: {model_name}")
     print(f"{'='*50}")
 
+    dst = MODELS_TFLITE / f"{model_name.replace('.pt', '')}_fp32.tflite"
+
+    # Preskoci ako vec postoji
+    if dst.exists():
+        print(f"⏭️  Već postoji: {dst.name} – preskačem")
+        return
+
     model = YOLO(model_name)
 
-    print("\nExport ONNX FP32...")
-    onnx_path = model.export(
-        format="onnx",
+    print("\nExport TFLite FP32...")
+    tflite_path = model.export(
+        format="tflite",
         imgsz=IMAGE_SIZE,
         simplify=True,
-        dynamic=False,
     )
 
-    src = Path(onnx_path)
-    dst = MODELS_ONNX / f"{model_name.replace('.pt', '')}_fp32.onnx"
+    src = Path(str(tflite_path))
     src.rename(dst)
     print(f"✅ Spremljeno: {dst} ({dst.stat().st_size / 1024 / 1024:.1f} MB)")
 
 if __name__ == "__main__":
     for model_name in MODELS:
-        export_onnx(model_name)
+        export_tflite(model_name)
 
     print(f"\n✅ Export završen!")
-    print(f"Modeli u: {MODELS_ONNX}")
+    print(f"Modeli u: {MODELS_TFLITE}")
     print("\nFajlovi:")
-    for f in MODELS_ONNX.glob("*.onnx"):
+    for f in MODELS_TFLITE.glob("*.tflite"):
         print(f"  {f.name} – {f.stat().st_size / 1024 / 1024:.1f} MB")

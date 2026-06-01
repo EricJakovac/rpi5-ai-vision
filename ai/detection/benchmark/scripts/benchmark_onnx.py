@@ -18,9 +18,9 @@ RESULTS_DIR = Path(__file__).parent.parent / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Postavke benchmarka
-NUM_WARMUP = 10       # broj warmup iteracija (ne računaju se)
+NUM_WARMUP = 10  # broj warmup iteracija (ne računaju se)
 NUM_ITERATIONS = 100  # broj mjernih iteracija
-IMAGE_SIZE = 640      # mora odgovarati veličini pri exportu
+IMAGE_SIZE = 640  # mora odgovarati veličini pri exportu
 
 
 def get_cpu_temperature() -> float:
@@ -55,9 +55,7 @@ def benchmark_model(model_path: Path) -> dict:
     sess_options.intra_op_num_threads = 4  # RPi 5 ima 4 jezgre
 
     session = ort.InferenceSession(
-        str(model_path),
-        sess_options=sess_options,
-        providers=["CPUExecutionProvider"]
+        str(model_path), sess_options=sess_options, providers=["CPUExecutionProvider"]
     )
 
     ram_after_load = get_ram_usage_mb()
@@ -85,7 +83,9 @@ def benchmark_model(model_path: Path) -> dict:
         latencies.append((end - start) * 1000)  # u ms
 
         if (i + 1) % 25 == 0:
-            print(f"  {i + 1}/{NUM_ITERATIONS} – trenutni FPS: {1000/latencies[-1]:.1f}")
+            print(
+                f"  {i + 1}/{NUM_ITERATIONS} – trenutni FPS: {1000/latencies[-1]:.1f}"
+            )
 
     temp_after = get_cpu_temperature()
     ram_peak = get_ram_usage_mb()
@@ -129,32 +129,41 @@ def main():
     print(f"Broj jezgri: {psutil.cpu_count()}")
     print(f"Ukupni RAM: {psutil.virtual_memory().total / 1024 / 1024:.0f} MB")
 
-    # Pronađi sve ONNX modele
-    models = sorted(MODELS_ONNX.glob("*.onnx"))
-    if not models:
+    # Pronađi modele u fp32 i int8 podfolderu
+    all_models = []
+    for subfolder in ["fp32", "int8"]:
+        folder = MODELS_ONNX / subfolder
+        if folder.exists():
+            all_models.extend(sorted(folder.glob("*.onnx")))
+
+    if not all_models:
         print(f"❌ Nema ONNX modela u {MODELS_ONNX}")
         return
 
-    print(f"\nPronađeni modeli: {[m.name for m in models]}")
+    print(f"\nPronađeni modeli: {[m.name for m in all_models]}")
 
     all_results = []
-    for model_path in models:
+    for model_path in all_models:
         result = benchmark_model(model_path)
+        # Dodaj precision tip u rezultate
+        result["precision"] = "int8" if "int8" in model_path.name else "fp32"
         all_results.append(result)
 
-    # Spremi rezultate u JSON
-    output_file = RESULTS_DIR / f"onnx_benchmark_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    output_file = (
+        RESULTS_DIR / f"onnx_benchmark_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    )
     with open(output_file, "w") as f:
         json.dump(all_results, f, indent=2)
 
     print(f"\n✅ Rezultati spremljeni: {output_file}")
 
-    # Usporedna tablica
-    print(f"\n{'='*60}")
-    print(f"{'Model':<30} {'FPS':>8} {'Latency':>10} {'RAM':>8}")
-    print(f"{'='*60}")
+    print(f"\n{'='*65}")
+    print(f"{'Model':<35} {'Precision':>10} {'FPS':>8} {'Latency':>10}")
+    print(f"{'='*65}")
     for r in all_results:
-        print(f"{r['model']:<30} {r['avg_fps']:>8.1f} {r['avg_latency_ms']:>9.1f}ms {r['ram_model_mb']:>7.1f}MB")
+        print(
+            f"{r['model']:<35} {r['precision']:>10} {r['avg_fps']:>8.1f} {r['avg_latency_ms']:>9.1f}ms"
+        )
 
 
 if __name__ == "__main__":
