@@ -2,7 +2,7 @@
   {
     "model": "yolov10n_fp32.tflite",
     "format": "tflite",
-    "image_size": 320,
+    "image_size": 640,
     "num_iterations": 100,
     "avg_latency_ms": 136.22,
     "min_latency_ms": 130.01,
@@ -18,7 +18,7 @@
   {
     "model": "yolov8n_fp32.tflite",
     "format": "tflite",
-    "image_size": 320,
+    "image_size": 640,
     "num_iterations": 100,
     "avg_latency_ms": 129.09,
     "min_latency_ms": 124.54,
@@ -34,7 +34,7 @@
   {
     "model": "yolov8s_fp32.tflite",
     "format": "tflite",
-    "image_size": 320,
+    "image_size": 640,
     "num_iterations": 100,
     "avg_latency_ms": 343.81,
     "min_latency_ms": 332.7,

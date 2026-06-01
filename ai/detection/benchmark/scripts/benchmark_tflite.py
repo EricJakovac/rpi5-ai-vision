@@ -20,7 +20,7 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 # Postavke benchmarka
 NUM_WARMUP = 10
 NUM_ITERATIONS = 100
-IMAGE_SIZE = 320  # TFLite modeli su exportani s 320
+IMAGE_SIZE = 640
 
 
 def get_cpu_temperature() -> float:
