@@ -9,9 +9,23 @@
     "mAP_0.5_0.95": 0.608,
     "avg_precision": 0.6665,
     "avg_recall": 0.206,
-    "avg_inference_ms": 1392.22,
+    "avg_inference_ms": 1397.58,
     "avg_fps": 0.72,
-    "timestamp": "2026-06-01T20:33:07.802811"
+    "timestamp": "2026-06-02T12:36:20.637538"
+  },
+  {
+    "model": "yolo11n_fp32.onnx",
+    "format": "onnx",
+    "quantization": "fp32",
+    "image_size": 640,
+    "num_images": 500,
+    "mAP_0.5": 0.6101,
+    "mAP_0.5_0.95": 0.4283,
+    "avg_precision": 0.4617,
+    "avg_recall": 0.1827,
+    "avg_inference_ms": 149.8,
+    "avg_fps": 6.68,
+    "timestamp": "2026-06-02T12:37:44.247396"
   },
   {
     "model": "yolov10n_fp32.onnx",
@@ -23,9 +37,9 @@
     "mAP_0.5_0.95": 0.4033,
     "avg_precision": 0.4359,
     "avg_recall": 0.1804,
-    "avg_inference_ms": 153.27,
-    "avg_fps": 6.52,
-    "timestamp": "2026-06-01T20:34:32.284181"
+    "avg_inference_ms": 154.79,
+    "avg_fps": 6.46,
+    "timestamp": "2026-06-02T12:39:09.438223"
   },
   {
     "model": "yolov8n_fp32.onnx",
@@ -37,9 +51,9 @@
     "mAP_0.5_0.95": 0.4245,
     "avg_precision": 0.4633,
     "avg_recall": 0.179,
-    "avg_inference_ms": 158.58,
-    "avg_fps": 6.31,
-    "timestamp": "2026-06-01T20:36:00.415110"
+    "avg_inference_ms": 158.62,
+    "avg_fps": 6.3,
+    "timestamp": "2026-06-02T12:40:37.610292"
   },
   {
     "model": "yolov8s_fp32.onnx",
@@ -51,9 +65,9 @@
     "mAP_0.5_0.95": 0.4833,
     "avg_precision": 0.5221,
     "avg_recall": 0.1929,
-    "avg_inference_ms": 410.3,
-    "avg_fps": 2.44,
-    "timestamp": "2026-06-01T20:39:34.753196"
+    "avg_inference_ms": 412.33,
+    "avg_fps": 2.43,
+    "timestamp": "2026-06-02T12:44:12.780074"
   },
   {
     "model": "rtdetr-l_int8.onnx",
@@ -65,9 +79,23 @@
     "mAP_0.5_0.95": 0.0573,
     "avg_precision": 1.0,
     "avg_recall": 0.2449,
-    "avg_inference_ms": 1185.16,
-    "avg_fps": 0.84,
-    "timestamp": "2026-06-01T20:49:42.884504"
+    "avg_inference_ms": 1157.58,
+    "avg_fps": 0.86,
+    "timestamp": "2026-06-02T12:54:07.067470"
+  },
+  {
+    "model": "yolo11n_int8.onnx",
+    "format": "onnx",
+    "quantization": "int8",
+    "image_size": 640,
+    "num_images": 500,
+    "mAP_0.5": 0.5902,
+    "mAP_0.5_0.95": 0.4157,
+    "avg_precision": 0.4477,
+    "avg_recall": 0.1808,
+    "avg_inference_ms": 165.12,
+    "avg_fps": 6.06,
+    "timestamp": "2026-06-02T12:55:37.925640"
   },
   {
     "model": "yolov10n_int8.onnx",
@@ -79,9 +107,9 @@
     "mAP_0.5_0.95": 0.3944,
     "avg_precision": 0.4266,
     "avg_recall": 0.1759,
-    "avg_inference_ms": 181.45,
-    "avg_fps": 5.51,
-    "timestamp": "2026-06-01T20:51:21.417443"
+    "avg_inference_ms": 176.91,
+    "avg_fps": 5.65,
+    "timestamp": "2026-06-02T12:57:13.617298"
   },
   {
     "model": "yolov8n_int8.onnx",
@@ -93,9 +121,9 @@
     "mAP_0.5_0.95": 0.4056,
     "avg_precision": 0.4437,
     "avg_recall": 0.1747,
-    "avg_inference_ms": 163.5,
-    "avg_fps": 6.12,
-    "timestamp": "2026-06-01T20:52:51.042469"
+    "avg_inference_ms": 158.29,
+    "avg_fps": 6.32,
+    "timestamp": "2026-06-02T12:58:40.927372"
   },
   {
     "model": "yolov8s_int8.onnx",
@@ -107,9 +135,23 @@
     "mAP_0.5_0.95": 0.4829,
     "avg_precision": 0.5251,
     "avg_recall": 0.192,
-    "avg_inference_ms": 358.74,
-    "avg_fps": 2.79,
-    "timestamp": "2026-06-01T20:55:58.703301"
+    "avg_inference_ms": 349.72,
+    "avg_fps": 2.86,
+    "timestamp": "2026-06-02T13:01:44.043232"
+  },
+  {
+    "model": "yolo11n_fp32.tflite",
+    "format": "tflite",
+    "quantization": "fp32",
+    "image_size": 640,
+    "num_images": 500,
+    "mAP_0.5": 0.6101,
+    "mAP_0.5_0.95": 0.4283,
+    "avg_precision": 0.4617,
+    "avg_recall": 0.1827,
+    "avg_inference_ms": 126.79,
+    "avg_fps": 7.89,
+    "timestamp": "2026-06-02T13:02:56.068466"
   },
   {
     "model": "yolov10n_fp32.tflite",
@@ -121,9 +163,9 @@
     "mAP_0.5_0.95": 0.4033,
     "avg_precision": 0.436,
     "avg_recall": 0.1804,
-    "avg_inference_ms": 136.11,
-    "avg_fps": 7.35,
-    "timestamp": "2026-06-01T20:57:14.297762"
+    "avg_inference_ms": 136.26,
+    "avg_fps": 7.34,
+    "timestamp": "2026-06-02T13:04:11.623709"
   },
   {
     "model": "yolov8n_fp32.tflite",
@@ -135,9 +177,9 @@
     "mAP_0.5_0.95": 0.4245,
     "avg_precision": 0.4633,
     "avg_recall": 0.179,
-    "avg_inference_ms": 134.54,
-    "avg_fps": 7.43,
-    "timestamp": "2026-06-01T20:58:30.467983"
+    "avg_inference_ms": 130.62,
+    "avg_fps": 7.66,
+    "timestamp": "2026-06-02T13:05:25.605544"
   },
   {
     "model": "yolov8s_fp32.tflite",
@@ -149,9 +191,23 @@
     "mAP_0.5_0.95": 0.4833,
     "avg_precision": 0.5221,
     "avg_recall": 0.1929,
-    "avg_inference_ms": 353.54,
-    "avg_fps": 2.83,
-    "timestamp": "2026-06-01T21:01:36.393941"
+    "avg_inference_ms": 347.63,
+    "avg_fps": 2.88,
+    "timestamp": "2026-06-02T13:08:28.472527"
+  },
+  {
+    "model": "yolo11n_int8.tflite",
+    "format": "tflite",
+    "quantization": "int8",
+    "image_size": 640,
+    "num_images": 500,
+    "mAP_0.5": 0.6004,
+    "mAP_0.5_0.95": 0.4246,
+    "avg_precision": 0.4583,
+    "avg_recall": 0.183,
+    "avg_inference_ms": 114.12,
+    "avg_fps": 8.76,
+    "timestamp": "2026-06-02T13:09:34.027054"
   },
   {
     "model": "yolov10n_int8.tflite",
@@ -163,9 +219,9 @@
     "mAP_0.5_0.95": 0.4024,
     "avg_precision": 0.4364,
     "avg_recall": 0.1796,
-    "avg_inference_ms": 127.32,
-    "avg_fps": 7.85,
-    "timestamp": "2026-06-01T21:02:47.118500"
+    "avg_inference_ms": 127.02,
+    "avg_fps": 7.87,
+    "timestamp": "2026-06-02T13:10:44.582009"
   },
   {
     "model": "yolov8n_int8.tflite",
@@ -177,9 +233,9 @@
     "mAP_0.5_0.95": 0.4286,
     "avg_precision": 0.4664,
     "avg_recall": 0.1801,
-    "avg_inference_ms": 102.4,
-    "avg_fps": 9.77,
-    "timestamp": "2026-06-01T21:03:46.825593"
+    "avg_inference_ms": 101.05,
+    "avg_fps": 9.9,
+    "timestamp": "2026-06-02T13:11:43.562751"
   },
   {
     "model": "yolov8s_int8.tflite",
@@ -191,8 +247,8 @@
     "mAP_0.5_0.95": 0.4816,
     "avg_precision": 0.5219,
     "avg_recall": 0.192,
-    "avg_inference_ms": 217.68,
-    "avg_fps": 4.59,
-    "timestamp": "2026-06-01T21:05:44.654062"
+    "avg_inference_ms": 217.34,
+    "avg_fps": 4.6,
+    "timestamp": "2026-06-02T13:13:41.139053"
   }
 ]
