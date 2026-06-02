@@ -1,5 +1,6 @@
 # Inference (ARM64 kompatibilno s Python 3.11)
 onnxruntime>=1.25.0
+ai-edge-litert>=2.1.4
 rpi-lgpio>=0.6
 picamera2>=0.3.34
 Pillow>=11.1.0
@@ -9,6 +10,9 @@ fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 websockets>=12.0
 python-multipart>=0.0.6
+
+# Evaluacija
+pycocotools>=2.0.7
 
 # Data
 numpy>=2.2.4

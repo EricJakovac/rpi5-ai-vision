@@ -13,6 +13,7 @@ MODELS = [
     "yolov8n.pt",
     "yolov8s.pt",
     "yolov10n.pt",
+    "yolo11n.pt"
 ]
 
 IMAGE_SIZE = 640

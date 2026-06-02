@@ -15,6 +15,7 @@ MODELS = [
     "yolov8s_fp32.onnx",
     "yolov10n_fp32.onnx",
     "rtdetr-l_fp32.onnx",
+    "yolo11n_fp32.onnx",
 ]
 
 
