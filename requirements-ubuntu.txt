@@ -29,4 +29,4 @@ python-dotenv>=1.0.0
 jupyter>=1.0.0
 
 # Face recognition
-insightface>=0.7.3
+insightface>=1.0.0

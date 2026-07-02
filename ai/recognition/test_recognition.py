@@ -1,21 +1,25 @@
 """
 Test prepoznavanja lica iz kamere s live prikazom.
+Koristi picamera2 QT preview + PIL overlay.
+Pokreći na RPi-u.
 """
 
 import insightface
 from insightface.app import FaceAnalysis
-from picamera2 import Picamera2
+from picamera2 import Picamera2, Preview
+from PIL import Image as PILImage, ImageDraw, ImageFont
 import numpy as np
 import json
 import time
-import cv2
 from pathlib import Path
 
 # Putanje
 BASE_DIR = Path(__file__).parent
 DB_PATH = BASE_DIR / "face_database.json"
 
-SIMILARITY_THRESHOLD = 0.5
+SIMILARITY_THRESHOLD = 0.4
+CAM_WIDTH = 1280
+CAM_HEIGHT = 720
 
 
 def load_database() -> dict:
@@ -45,92 +49,90 @@ def identify_face(embedding: np.ndarray, persons: dict) -> tuple:
             best_name = name
     if best_score >= SIMILARITY_THRESHOLD:
         return best_name, best_score
-    else:
-        return None, best_score
+    return None, best_score
 
 
-def draw_results(
-    frame: np.ndarray, faces: list, persons: dict, inference_ms: float
-) -> np.ndarray:
-    display = frame.copy()
+def draw_overlay(picam2: Picamera2, faces: list, persons: dict, inference_ms: float):
+    """Crta overlay s bounding boxovima i imenima."""
+    overlay = PILImage.new("RGBA", (CAM_WIDTH, CAM_HEIGHT), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    try:
+        font = ImageFont.truetype(
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22
+        )
+        font_small = ImageFont.truetype(
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18
+        )
+    except Exception:
+        font = ImageFont.load_default()
+        font_small = font
 
     for face in faces:
         x1, y1, x2, y2 = face.bbox.astype(int)
         name, score = identify_face(face.embedding, persons)
 
         if name:
-            color = (0, 255, 0)  # zelena = poznata osoba
+            color = (0, 255, 0, 255)
             label = f"{name} ({score:.2f})"
         else:
-            color = (0, 0, 255)  # crvena = nepoznata osoba
+            color = (255, 0, 0, 255)
             label = f"Nepoznato ({score:.2f})"
 
         # Bounding box
-        cv2.rectangle(display, (x1, y1), (x2, y2), color, 2)
+        draw.rectangle([x1, y1, x2, y2], outline=color, width=3)
 
-        # Label pozadina
-        (lw, lh), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
-        cv2.rectangle(display, (x1, y1 - lh - 8), (x1 + lw, y1), color, -1)
-        cv2.putText(
-            display, label, (x1, y1 - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2
-        )
+        # Label pozadina i tekst
+        bbox_text = draw.textbbox((x1, y1 - 30), label, font=font)
+        draw.rectangle(bbox_text, fill=(0, 0, 0, 180))
+        draw.text((x1, y1 - 30), label, fill=color, font=font)
 
-        # Det score
-        cv2.putText(
-            display,
+        # Det score ispod boxa
+        draw.text(
+            (x1, y2 + 5),
             f"det: {face.det_score:.2f}",
-            (x1, y2 + 20),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            color,
-            1,
+            fill=color,
+            font=font_small
         )
 
-    # Info overlay
-    cv2.rectangle(display, (0, 0), (320, 55), (0, 0, 0), -1)
-    cv2.putText(
-        display,
-        f"Inference: {inference_ms:.0f}ms",
-        (10, 20),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.6,
-        (0, 255, 0),
-        2,
+    # Info overlay gore lijevo
+    info = f"Inference: {inference_ms:.0f}ms | Lica: {len(faces)} | Threshold: {SIMILARITY_THRESHOLD}"
+    bbox_info = draw.textbbox((10, 10), info, font=font_small)
+    draw.rectangle(
+        (bbox_info[0] - 5, bbox_info[1] - 5, bbox_info[2] + 5, bbox_info[3] + 5),
+        fill=(0, 0, 0, 160)
     )
-    cv2.putText(
-        display,
-        f"Lica: {len(faces)} | Threshold: {SIMILARITY_THRESHOLD}",
-        (10, 45),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.6,
-        (0, 255, 0),
-        2,
-    )
+    draw.text((10, 10), info, fill=(0, 255, 0, 255), font=font_small)
 
-    return display
+    picam2.set_overlay(np.array(overlay))
 
 
 def main():
     print("🚀 Test prepoznavanja lica – RPi 5")
-    print("Pritisni 'q' za izlaz\n")
+    print("Pritisni Ctrl+C za izlaz\n")
 
+    # Učitaj bazu
     persons = load_database()
     if not persons:
         return
 
+    # Inicijaliziraj InsightFace
     print("Učitavam InsightFace model...")
-    app = FaceAnalysis(name="buffalo_sc", providers=["CPUExecutionProvider"])
+    app = FaceAnalysis(name='buffalo_sc', providers=['CPUExecutionProvider'])
     app.prepare(ctx_id=0, det_size=(640, 640))
     print("✅ Model učitan")
 
+    # Inicijaliziraj kameru
     picam2 = Picamera2()
     config = picam2.create_preview_configuration(
-        main={"size": (1280, 720), "format": "RGB888"}
+        main={"size": (CAM_WIDTH, CAM_HEIGHT), "format": "RGB888"}
     )
     picam2.configure(config)
+    picam2.start_preview(Preview.QT)
     picam2.start()
     time.sleep(2)
-    print("✅ Kamera pokrenuta\n")
+    print("✅ Kamera pokrenuta")
+    print(f"Threshold: {SIMILARITY_THRESHOLD}\n")
 
     try:
         while True:
@@ -140,6 +142,9 @@ def main():
             faces = app.get(frame)
             inference_ms = (time.perf_counter() - t0) * 1000
 
+            # Crtaj overlay
+            draw_overlay(picam2, faces, persons, inference_ms)
+
             # Terminal ispis
             if len(faces) == 0:
                 print(f"[{inference_ms:.0f}ms] Nema lica")
@@ -147,27 +152,16 @@ def main():
                 for face in faces:
                     name, score = identify_face(face.embedding, persons)
                     if name:
-                        print(
-                            f"[{inference_ms:.0f}ms] ✅ {name} (sličnost: {score:.3f})"
-                        )
+                        print(f"[{inference_ms:.0f}ms] ✅ {name} (sličnost: {score:.3f})")
                     else:
-                        print(
-                            f"[{inference_ms:.0f}ms] ❓ Nepoznata osoba (max: {score:.3f})"
-                        )
+                        print(f"[{inference_ms:.0f}ms] ❓ Nepoznata osoba (max: {score:.3f})")
 
-            # Prikaz
-            display = draw_results(frame, faces, persons, inference_ms)
-            display_bgr = cv2.cvtColor(display, cv2.COLOR_RGB2BGR)
-            cv2.imshow("Face Recognition – RPi5", display_bgr)
-
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+            time.sleep(0.5)
 
     except KeyboardInterrupt:
         print("\n🛑 Gašenje...")
     finally:
         picam2.stop()
-        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

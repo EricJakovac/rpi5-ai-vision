@@ -1,9 +1,12 @@
-# Inference (ARM64 kompatibilno s Python 3.11)
+# Inference (ARM64 kompatibilno s Python 3.13)
 onnxruntime>=1.25.0
 ai-edge-litert>=2.1.4
 rpi-lgpio>=0.6
 picamera2>=0.3.34
 Pillow>=11.1.0
+
+# Face recognition
+insightface>=1.0.0
 
 # Web server
 fastapi>=0.104.0
@@ -23,6 +26,7 @@ tqdm>=4.65.0
 requests>=2.31.0
 python-dotenv>=1.0.0
 imutils>=0.5.4
+RPi.GPIO>=0.7.0
 
-# Face recognition
-insightface>=0.7.3
+# NAPOMENA: opencv instaliran system-wide via apt (python3-opencv)
+# Ne instalirati opencv-python pip verziju - interferira s picamera2 Qt preview
