@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from PIL import Image as PILImage
 
-MODEL_PATH = Path("ai/detection/models/onnx/yolov8n_fp32.onnx")
+MODEL_PATH = Path("ai/detection/models/onnx/fp32/yolov8n_fp32.onnx")
 IMAGE_SIZE = 640
 CONF_THRESHOLD = 0.7
 IOU_THRESHOLD = 0.45
@@ -44,9 +44,8 @@ def nms(boxes, scores, iou_threshold):
 
 def detect_persons(output, conf_threshold, iou_threshold):
     predictions = output[0].T  # (8400, 84)
-    persons_mask = (
-        (np.argmax(predictions[:, 4:], axis=1) == 0) &
-        (np.max(predictions[:, 4:], axis=1) > conf_threshold)
+    persons_mask = (np.argmax(predictions[:, 4:], axis=1) == 0) & (
+        np.max(predictions[:, 4:], axis=1) > conf_threshold
     )
     persons = predictions[persons_mask]
     if len(persons) == 0:
@@ -72,16 +71,38 @@ def draw_detections(frame, detections, fps, inference_ms):
         label = f"Person {conf:.2f}"
         (lw, lh), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
         cv2.rectangle(frame, (x1, y1 - lh - 8), (x1 + lw, y1), (0, 255, 0), -1)
-        cv2.putText(frame, label, (x1, y1 - 4),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+        cv2.putText(
+            frame, label, (x1, y1 - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2
+        )
 
     cv2.rectangle(frame, (0, 0), (280, 80), (0, 0, 0), -1)
-    cv2.putText(frame, f"FPS: {fps:.1f}", (10, 25),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-    cv2.putText(frame, f"Inference: {inference_ms:.0f}ms", (10, 50),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-    cv2.putText(frame, f"Osobe: {len(detections)}", (10, 75),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+    cv2.putText(
+        frame,
+        f"FPS: {fps:.1f}",
+        (10, 25),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (0, 255, 0),
+        2,
+    )
+    cv2.putText(
+        frame,
+        f"Inference: {inference_ms:.0f}ms",
+        (10, 50),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (0, 255, 0),
+        2,
+    )
+    cv2.putText(
+        frame,
+        f"Osobe: {len(detections)}",
+        (10, 75),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (0, 255, 0),
+        2,
+    )
 
     return frame
 
@@ -94,7 +115,7 @@ def main():
     picam2 = Picamera2()
     config = picam2.create_preview_configuration(
         main={"size": (1280, 720), "format": "RGB888"},
-        controls={"AwbMode":1} #Auto AWB
+        controls={"AwbMode": 1},  # Auto AWB
     )
     picam2.configure(config)
     picam2.start()
@@ -105,9 +126,7 @@ def main():
     sess_options = ort.SessionOptions()
     sess_options.intra_op_num_threads = 4
     session = ort.InferenceSession(
-        str(MODEL_PATH),
-        sess_options=sess_options,
-        providers=["CPUExecutionProvider"]
+        str(MODEL_PATH), sess_options=sess_options, providers=["CPUExecutionProvider"]
     )
     input_name = session.get_inputs()[0].name
     print(f"✅ Model učitan: {MODEL_PATH.name}")
@@ -123,8 +142,7 @@ def main():
 
         # Resize samo za inference
         img_resized = np.array(
-            PILImage.fromarray(frame).resize((IMAGE_SIZE, IMAGE_SIZE)),
-            dtype=np.float32
+            PILImage.fromarray(frame).resize((IMAGE_SIZE, IMAGE_SIZE)), dtype=np.float32
         )
         img_resized /= 255.0
         inp = np.expand_dims(img_resized.transpose(2, 0, 1), 0)
@@ -148,7 +166,7 @@ def main():
         display_bgr = cv2.cvtColor(display, cv2.COLOR_RGB2BGR)
         cv2.imshow("RPi5 - Person Detection", display_bgr)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
     picam2.stop()

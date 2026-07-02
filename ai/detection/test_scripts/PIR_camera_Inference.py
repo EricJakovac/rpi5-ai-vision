@@ -12,16 +12,20 @@ from pathlib import Path
 
 PIR_PIN = 17
 BASE_DIR = Path(__file__).parent.parent
-MODEL_PATH = BASE_DIR / "models" / "onnx" / "yolov8n_fp32.onnx"
+MODEL_PATH = BASE_DIR / "models" / "onnx" / "fp32" / "yolov8n_fp32.onnx"
 IMAGE_SIZE = 640
 CONF_THRESHOLD = 0.5
 IOU_THRESHOLD = 0.45
 
-PIR_STABILIZATION = 20         # sekundi za PIR stabilizaciju
-CAMERA_START_OFFSET = 10       # sekundi od starta kada se pali kamera
-IGNORE_AFTER_STABILIZATION = 3 # sekundi ignoriranja PIR-a odmah nakon stabilizacije (lažni okidač)
-MIN_TRIGGER_TIME = 0.8         # signal mora trajati barem ovako dugo da se smatra pravim pokretom
-POST_MOTION_DELAY = 2          # sekundi bez pokreta prije gašenja AI
+PIR_STABILIZATION = 20  # sekundi za PIR stabilizaciju
+CAMERA_START_OFFSET = 10  # sekundi od starta kada se pali kamera
+IGNORE_AFTER_STABILIZATION = (
+    3  # sekundi ignoriranja PIR-a odmah nakon stabilizacije (lažni okidač)
+)
+MIN_TRIGGER_TIME = (
+    0.8  # signal mora trajati barem ovako dugo da se smatra pravim pokretom
+)
+POST_MOTION_DELAY = 2  # sekundi bez pokreta prije gašenja AI
 
 
 def nms(boxes, scores, iou_threshold):
@@ -51,16 +55,17 @@ def nms(boxes, scores, iou_threshold):
 
 def detect_persons(session, frame):
     input_name = session.get_inputs()[0].name
-    img = np.array(
-        PILImage.fromarray(frame).resize((IMAGE_SIZE, IMAGE_SIZE)),
-        dtype=np.float32
-    ) / 255.0
+    img = (
+        np.array(
+            PILImage.fromarray(frame).resize((IMAGE_SIZE, IMAGE_SIZE)), dtype=np.float32
+        )
+        / 255.0
+    )
     inp = np.expand_dims(img.transpose(2, 0, 1), 0)
     output = session.run(None, {input_name: inp})[0]
     predictions = output[0].T
-    persons_mask = (
-        (np.argmax(predictions[:, 4:], axis=1) == 0) &
-        (np.max(predictions[:, 4:], axis=1) > CONF_THRESHOLD)
+    persons_mask = (np.argmax(predictions[:, 4:], axis=1) == 0) & (
+        np.max(predictions[:, 4:], axis=1) > CONF_THRESHOLD
     )
     persons = predictions[persons_mask]
     if len(persons) == 0:
@@ -76,7 +81,9 @@ def draw_overlay(picam2, detections, cam_width=1280, cam_height=720):
     if detections:
         draw = ImageDraw.Draw(overlay)
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
+            font = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20
+            )
         except Exception:
             font = ImageFont.load_default()
         for box, conf in detections:
@@ -86,7 +93,9 @@ def draw_overlay(picam2, detections, cam_width=1280, cam_height=720):
             x2 = int((cx + w / 2) * cam_width / IMAGE_SIZE)
             y2 = int((cy + h / 2) * cam_height / IMAGE_SIZE)
             draw.rectangle([x1, y1, x2, y2], outline=(0, 255, 0, 255), width=3)
-            draw.text((x1 + 4, y1 + 4), f"osoba {conf:.2f}", fill=(0, 255, 0, 255), font=font)
+            draw.text(
+                (x1 + 4, y1 + 4), f"osoba {conf:.2f}", fill=(0, 255, 0, 255), font=font
+            )
     picam2.set_overlay(np.array(overlay))
 
 
@@ -102,14 +111,14 @@ def main():
     sess_options.intra_op_num_threads = 4
     sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     session = ort.InferenceSession(
-        str(MODEL_PATH),
-        sess_options=sess_options,
-        providers=["CPUExecutionProvider"]
+        str(MODEL_PATH), sess_options=sess_options, providers=["CPUExecutionProvider"]
     )
     print(f"✅ Model učitan: {MODEL_PATH.name}")
 
     # PIR stabilizacija — kamera se pali u sredini da ima vremena zagrijati se
-    print(f"⏳ PIR stabilizacija ({PIR_STABILIZATION}s) — kamera se pali za {CAMERA_START_OFFSET}s...")
+    print(
+        f"⏳ PIR stabilizacija ({PIR_STABILIZATION}s) — kamera se pali za {CAMERA_START_OFFSET}s..."
+    )
     time.sleep(CAMERA_START_OFFSET)
 
     picam2 = Picamera2()

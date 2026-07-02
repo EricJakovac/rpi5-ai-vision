@@ -16,6 +16,9 @@ datasets/
 *.pt
 *.onnx
 *.tflite
+ai/recognition/videos
+ai/recognition/pictures
+ai/recognition/face_database.json
 
 # Model saved files
 *_saved_model/
