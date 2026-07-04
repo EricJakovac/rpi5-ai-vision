@@ -1,7 +1,6 @@
 """
 Test prepoznavanja lica iz kamere s live prikazom.
 Koristi picamera2 QT preview + PIL overlay.
-Pokreći na RPi-u.
 """
 
 import insightface
@@ -89,10 +88,7 @@ def draw_overlay(picam2: Picamera2, faces: list, persons: dict, inference_ms: fl
 
         # Det score ispod boxa
         draw.text(
-            (x1, y2 + 5),
-            f"det: {face.det_score:.2f}",
-            fill=color,
-            font=font_small
+            (x1, y2 + 5), f"det: {face.det_score:.2f}", fill=color, font=font_small
         )
 
     # Info overlay gore lijevo
@@ -100,7 +96,7 @@ def draw_overlay(picam2: Picamera2, faces: list, persons: dict, inference_ms: fl
     bbox_info = draw.textbbox((10, 10), info, font=font_small)
     draw.rectangle(
         (bbox_info[0] - 5, bbox_info[1] - 5, bbox_info[2] + 5, bbox_info[3] + 5),
-        fill=(0, 0, 0, 160)
+        fill=(0, 0, 0, 160),
     )
     draw.text((10, 10), info, fill=(0, 255, 0, 255), font=font_small)
 
@@ -118,7 +114,7 @@ def main():
 
     # Inicijaliziraj InsightFace
     print("Učitavam InsightFace model...")
-    app = FaceAnalysis(name='buffalo_sc', providers=['CPUExecutionProvider'])
+    app = FaceAnalysis(name="buffalo_sc", providers=["CPUExecutionProvider"])
     app.prepare(ctx_id=0, det_size=(640, 640))
     print("✅ Model učitan")
 
@@ -152,9 +148,13 @@ def main():
                 for face in faces:
                     name, score = identify_face(face.embedding, persons)
                     if name:
-                        print(f"[{inference_ms:.0f}ms] ✅ {name} (sličnost: {score:.3f})")
+                        print(
+                            f"[{inference_ms:.0f}ms] ✅ {name} (sličnost: {score:.3f})"
+                        )
                     else:
-                        print(f"[{inference_ms:.0f}ms] ❓ Nepoznata osoba (max: {score:.3f})")
+                        print(
+                            f"[{inference_ms:.0f}ms] ❓ Nepoznata osoba (max: {score:.3f})"
+                        )
 
             time.sleep(0.5)
 
