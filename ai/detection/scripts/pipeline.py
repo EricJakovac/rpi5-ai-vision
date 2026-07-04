@@ -1,7 +1,11 @@
 """
 Integrirani pipeline:
 PIR senzor → Detekcija osobe (YOLOv8n TFLite INT8) → Prepoznavanje lica (InsightFace)
-Jedan box po osobi – zelen ako prepoznata, plav ako nije.
+
+Box boje:
+  Plavi  → osoba bez lica (leđa, daleko, itd.)
+  Crveni → nepoznata osoba (lice pronađeno ali nije u bazi)
+  Zeleni → poznata osoba
 """
 
 import RPi.GPIO as GPIO
@@ -40,7 +44,6 @@ POST_MOTION_DELAY = 5
 
 # ─── Face database ───────────────────────────────────────────────────────────
 
-
 def load_database() -> dict:
     if not DB_PATH.exists():
         print(f"⚠️  Baza lica ne postoji: {DB_PATH}")
@@ -55,7 +58,6 @@ def load_database() -> dict:
 
 
 # ─── NMS ─────────────────────────────────────────────────────────────────────
-
 
 def nms(boxes, scores, iou_threshold):
     if len(boxes) == 0:
@@ -84,44 +86,33 @@ def nms(boxes, scores, iou_threshold):
 
 # ─── Detekcija osobe (TFLite INT8) ───────────────────────────────────────────
 
-
 def detect_persons(interpreter, input_details, output_details, frame) -> list:
-    """
-    YOLOv8n TFLite INT8 detekcija osoba.
-    Vraća listu (bbox_normalizirani, confidence).
-    bbox je normaliziran 0-1 (cx, cy, w, h).
-    """
-    input_dtype = input_details[0]["dtype"]
+    input_dtype = input_details[0]['dtype']
 
-    # Preprocess – BHWC format za TFLite
-    img = (
-        np.array(
-            PILImage.fromarray(frame).resize((IMAGE_SIZE, IMAGE_SIZE)), dtype=np.float32
-        )
-        / 255.0
-    )
-    img = np.expand_dims(img, axis=0)  # (1, 640, 640, 3)
+    img = np.array(
+        PILImage.fromarray(frame).resize((IMAGE_SIZE, IMAGE_SIZE)),
+        dtype=np.float32
+    ) / 255.0
+    img = np.expand_dims(img, axis=0)  # BHWC: (1, 640, 640, 3)
 
-    # Kvantizacija inputa float32 → INT8
     if input_dtype == np.int8:
-        scale, zero_point = input_details[0]["quantization"]
+        scale, zero_point = input_details[0]['quantization']
         if scale != 0:
             img = (img / scale + zero_point).astype(np.int8)
 
-    interpreter.set_tensor(input_details[0]["index"], img)
+    interpreter.set_tensor(input_details[0]['index'], img)
     interpreter.invoke()
-    output = interpreter.get_tensor(output_details[0]["index"])
+    output = interpreter.get_tensor(output_details[0]['index'])
 
-    # Dequantizacija outputa INT8 → float32
     if input_dtype == np.int8:
-        out_scale, out_zp = output_details[0]["quantization"]
+        out_scale, out_zp = output_details[0]['quantization']
         if out_scale != 0:
             output = (output.astype(np.float32) - out_zp) * out_scale
 
-    # Postprocess
     predictions = output[0].T  # (8400, 84)
-    persons_mask = (np.argmax(predictions[:, 4:], axis=1) == 0) & (
-        np.max(predictions[:, 4:], axis=1) > CONF_THRESHOLD
+    persons_mask = (
+        (np.argmax(predictions[:, 4:], axis=1) == 0) &
+        (np.max(predictions[:, 4:], axis=1) > CONF_THRESHOLD)
     )
     persons = predictions[persons_mask]
     if len(persons) == 0:
@@ -134,7 +125,6 @@ def detect_persons(interpreter, input_details, output_details, frame) -> list:
 
 
 # ─── Prepoznavanje lica (InsightFace) ────────────────────────────────────────
-
 
 def cosine_similarity(emb1: np.ndarray, emb2: np.ndarray) -> float:
     return float(np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2)))
@@ -154,14 +144,20 @@ def identify_face(embedding: np.ndarray, persons: dict) -> tuple:
 
 
 def recognize_in_person_bbox(face_app, frame, person_bbox, persons: dict) -> tuple:
+    """
+    Vraća:
+      (ime, score)  → poznata osoba
+      (None, score) → nepoznata osoba, lice pronađeno
+      (None, -1.0)  → nema lica u bbox-u
+    """
     if not persons:
-        return None, 0.0
+        return None, -1.0
 
     faces = face_app.get(frame)
     if not faces:
-        return None, 0.0
+        return None, -1.0  # nema lica u sceni
 
-    # Pronađi lice čiji se bbox najviše preklapa s YOLO person bbox-om
+    # Pronađi lice koje se preklapa s YOLO person bbox-om
     cx, cy, w, h = person_bbox
     px1 = (cx - w / 2) * CAM_WIDTH
     py1 = (cy - h / 2) * CAM_HEIGHT
@@ -173,13 +169,10 @@ def recognize_in_person_bbox(face_app, frame, person_bbox, persons: dict) -> tup
 
     for face in faces:
         fx1, fy1, fx2, fy2 = face.bbox
-
-        # IoU između YOLO person boxa i InsightFace lica
         ix1 = max(px1, fx1)
         iy1 = max(py1, fy1)
         ix2 = min(px2, fx2)
         iy2 = min(py2, fy2)
-
         if ix2 > ix1 and iy2 > iy1:
             overlap = (ix2 - ix1) * (iy2 - iy1)
             if overlap > best_overlap:
@@ -187,18 +180,21 @@ def recognize_in_person_bbox(face_app, frame, person_bbox, persons: dict) -> tup
                 best_face = face
 
     if best_face is None:
-        return None, 0.0
+        return None, -1.0  # lice nije unutar person bbox-a
 
     return identify_face(best_face.embedding, persons)
 
 
 # ─── Overlay ─────────────────────────────────────────────────────────────────
 
-
 def draw_overlay(picam2, detections_with_identity, pir_active, inference_ms):
     """
-    detections_with_identity: lista (bbox, conf, ime, score)
-    bbox je normaliziran 0-1 (cx, cy, w, h)
+    detections_with_identity: lista (bbox, conf, ime, face_score)
+    
+    Logika boja:
+      face_score == -1.0 → nema lica → PLAVI box "Osoba"
+      face_score >= 0.0, name=None → nepoznato → CRVENI box "Nepoznata osoba"
+      name postoji → poznato → ZELENI box "Ime (score)"
     """
     overlay = PILImage.new("RGBA", (CAM_WIDTH, CAM_HEIGHT), (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
@@ -216,31 +212,30 @@ def draw_overlay(picam2, detections_with_identity, pir_active, inference_ms):
 
     for bbox, conf, name, face_score in detections_with_identity:
         cx, cy, w, h = bbox
-
-        # Konvertiraj normalizirane koordinate u piksele
         x1 = int((cx - w / 2) * CAM_WIDTH)
         y1 = int((cy - h / 2) * CAM_HEIGHT)
         x2 = int((cx + w / 2) * CAM_WIDTH)
         y2 = int((cy + h / 2) * CAM_HEIGHT)
 
         if name:
-            # Poznata osoba → zeleni box
+            # Poznata osoba → zeleni
             color = (0, 255, 0, 255)
             label = f"{name} ({face_score:.2f})"
+        elif face_score >= 0.0:
+            # Nepoznata osoba (lice pronađeno) → crveni
+            color = (255, 0, 0, 255)
+            label = f"Nepoznata osoba ({face_score:.2f})"
         else:
-            # Nepoznata osoba → plavi box
+            # Osoba bez lica → plavi
             color = (0, 150, 255, 255)
-            label = f"Nepoznato ({conf:.2f})"
+            label = f"Osoba ({conf:.2f})"
 
-        # Bounding box
         draw.rectangle([x1, y1, x2, y2], outline=color, width=3)
-
-        # Label
         bbox_text = draw.textbbox((x1, y1 - 30), label, font=font)
         draw.rectangle(bbox_text, fill=(0, 0, 0, 180))
         draw.text((x1, y1 - 30), label, fill=color, font=font)
 
-    # Info overlay gore lijevo
+    # Info overlay
     pir_status = "AKTIVAN" if pir_active else "CEKAM"
     info_lines = [
         f"PIR: {pir_status}",
@@ -251,8 +246,8 @@ def draw_overlay(picam2, detections_with_identity, pir_active, inference_ms):
     for line in info_lines:
         bbox_info = draw.textbbox((10, y_offset), line, font=font_small)
         draw.rectangle(
-            (bbox_info[0] - 5, bbox_info[1] - 3, bbox_info[2] + 5, bbox_info[3] + 3),
-            fill=(0, 0, 0, 160),
+            (bbox_info[0]-5, bbox_info[1]-3, bbox_info[2]+5, bbox_info[3]+3),
+            fill=(0, 0, 0, 160)
         )
         draw.text((10, y_offset), line, fill=(0, 255, 0, 255), font=font_small)
         y_offset += 28
@@ -262,18 +257,15 @@ def draw_overlay(picam2, detections_with_identity, pir_active, inference_ms):
 
 # ─── Main ────────────────────────────────────────────────────────────────────
 
-
 def main():
-    print("=== Integrirani Pipeline: PIR + Detekcija + Prepoznavanje ===\n")
+    print("=== Integrirani Pipeline: PIR + Detekcija + Prepoznavanje ===")
+    print("Boje: 🔵 Osoba | 🔴 Nepoznata osoba | 🟢 Poznata osoba\n")
 
-    # Učitaj bazu lica
     persons = load_database()
 
-    # GPIO
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(PIR_PIN, GPIO.IN)
 
-    # Učitaj TFLite model
     print(f"Učitavam detekcijski model: {MODEL_PATH.name}")
     interpreter = Interpreter(model_path=str(MODEL_PATH), num_threads=4)
     interpreter.allocate_tensors()
@@ -281,13 +273,11 @@ def main():
     output_details = interpreter.get_output_details()
     print("✅ Detekcijski model učitan")
 
-    # Učitaj InsightFace
     print("Učitavam InsightFace model...")
-    face_app = FaceAnalysis(name="buffalo_sc", providers=["CPUExecutionProvider"])
+    face_app = FaceAnalysis(name='buffalo_sc', providers=['CPUExecutionProvider'])
     face_app.prepare(ctx_id=0, det_size=(640, 640))
     print("✅ InsightFace učitan")
 
-    # PIR stabilizacija + kamera
     print(f"\n⏳ PIR stabilizacija ({PIR_STABILIZATION}s)...")
     time.sleep(CAMERA_START_OFFSET)
 
@@ -319,7 +309,6 @@ def main():
             pir_state = GPIO.input(PIR_PIN)
             now = time.time()
 
-            # PIR logika
             if pir_state == 1:
                 last_motion_time = now
                 if not is_active:
@@ -340,12 +329,10 @@ def main():
                     frame = picam2.capture_array()
                     t0 = time.perf_counter()
 
-                    # Agent 1: Detekcija osoba
                     person_detections = detect_persons(
                         interpreter, input_details, output_details, frame
                     )
 
-                    # Agent 2: Prepoznavanje za svaku osobu
                     detections_with_identity = []
                     for bbox, conf in person_detections:
                         if persons:
@@ -353,26 +340,23 @@ def main():
                                 face_app, frame, bbox, persons
                             )
                         else:
-                            name, face_score = None, 0.0
+                            name, face_score = None, -1.0
 
                         detections_with_identity.append((bbox, conf, name, face_score))
 
                     inference_ms = (time.perf_counter() - t0) * 1000
 
-                    # Overlay
                     draw_overlay(picam2, detections_with_identity, True, inference_ms)
 
-                    # Terminal ispis
+                    # Terminal ispis – usklađen s prikazom
                     if detections_with_identity:
                         for bbox, conf, name, face_score in detections_with_identity:
                             if name:
-                                print(
-                                    f"[{inference_ms:.0f}ms] ✅ {name} ({face_score:.3f})"
-                                )
+                                print(f"[{inference_ms:.0f}ms] 🟢 {name} ({face_score:.3f})")
+                            elif face_score >= 0.0:
+                                print(f"[{inference_ms:.0f}ms] 🔴 Nepoznata osoba ({face_score:.3f})")
                             else:
-                                print(
-                                    f"[{inference_ms:.0f}ms] ❓ Nepoznata osoba (det: {conf:.2f})"
-                                )
+                                print(f"[{inference_ms:.0f}ms] 🔵 Osoba ({conf:.2f}) – nema lica")
                     else:
                         print(f"[{inference_ms:.0f}ms] Nema osoba")
 
