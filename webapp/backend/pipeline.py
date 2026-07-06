@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from PIL import Image as PILImage
 from datetime import datetime
+from collections import deque
 
 from camera import CameraManager
 from models import ModelManager
@@ -79,10 +80,10 @@ class InferencePipeline:
         self._thread = None
         self._lock = threading.Lock()
 
-        # Rezultati (čitaju ih API endpointi)
-        self._latest_frame = None  # numpy array, RGB
-        self._latest_detections = []  # lista Detection objekata
-        self._latest_metrics = None  # Metrics objekt
+        # Rezultati
+        self._latest_frame = None
+        self._latest_detections = []
+        self._latest_metrics = None
 
         # FPS tracking
         self._fps_times = []
@@ -93,6 +94,10 @@ class InferencePipeline:
 
         # PIR state
         self.pir_active = False
+        self._pir_triggers = 0
+
+        # Detection history
+        self._detection_history = deque(maxlen=50)
 
         # Face database
         self._persons = {}
@@ -140,7 +145,7 @@ class InferencePipeline:
 
     def _inference_loop(self):
         while self._running:
-            # Ako PIR nije aktivan, samo uzmi frame bez inference-a
+            # Ako PIR nije aktivan, samo uzmi frame
             if not self.pir_active:
                 frame = self.camera.get_frame()
                 if frame is not None:
@@ -169,11 +174,23 @@ class InferencePipeline:
 
             total_ms = (time.perf_counter() - t_total) * 1000
 
-            # FPS računanje
+            # FPS
             now = time.time()
             self._fps_times.append(now)
             self._fps_times = [t for t in self._fps_times if now - t < 1.0]
             fps = len(self._fps_times)
+
+            # Spremi u history samo ako ima detekcija
+            for det in detections:
+                self._detection_history.append(
+                    {
+                        "timestamp": datetime.now().isoformat(),
+                        "status": det.status,
+                        "name": det.name,
+                        "face_score": det.face_score,
+                        "confidence": det.confidence,
+                    }
+                )
 
             # Spremi rezultate
             with self._lock:
@@ -191,7 +208,6 @@ class InferencePipeline:
 
     def _detect_persons(self, frame) -> list:
         fmt = self.model_manager.get_format()
-
         if fmt == "tflite":
             return self._detect_tflite(frame)
         elif fmt == "onnx":
@@ -267,11 +283,10 @@ class InferencePipeline:
 
     def _recognize_persons(self, frame, person_detections) -> list:
         detections = []
-
         if not person_detections:
             return detections
 
-        # InsightFace detekcija lica (jednom za cijeli frame)
+        # InsightFace detekcija lica jednom za cijeli frame
         faces = []
         if self._face_app and self._persons:
             try:
@@ -329,7 +344,6 @@ class InferencePipeline:
         if best_face is None:
             return None, -1.0
 
-        # Cosine similarity
         emb = best_face.embedding
         best_name = None
         best_score = -1.0
@@ -392,3 +406,7 @@ class InferencePipeline:
             if self._latest_metrics is None:
                 return self._build_metrics(0, 0, 0, 0)
             return self._latest_metrics
+
+    def get_history(self) -> list:
+        with self._lock:
+            return list(self._detection_history)
