@@ -256,3 +256,18 @@ async def get_persons():
         for name, data in db.get("persons", {}).items()
     ]
     return PersonsResponse(persons=persons, total=len(persons))
+
+
+@app.get("/clusters")
+async def get_clusters():
+    """Klastere nepoznatih osoba."""
+    clusters = pipeline.get_clusters()
+    stats = pipeline.get_clustering_stats()
+    return {"clusters": clusters, "stats": stats}
+
+
+@app.post("/clusters/reset")
+async def reset_clusters():
+    """Resetiraj clustering podatke."""
+    pipeline.reset_clustering()
+    return {"success": True, "message": "Clustering resetiran"}

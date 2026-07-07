@@ -3,6 +3,7 @@ Inference pipeline – background thread.
 Koordinira kameru, detekciju i prepoznavanje lica.
 """
 
+import sys
 import threading
 import time
 import numpy as np
@@ -15,6 +16,10 @@ from datetime import datetime
 from camera import CameraManager
 from models import ModelManager
 from schemas import Detection, Metrics
+
+# Dodaj putanju do ai/recognition
+sys.path.append(str(Path(__file__).parent.parent.parent / "ai" / "recognition"))
+from clustering import UnknownPersonClustering
 
 # ─── Konstante ───────────────────────────────────────────────────────────────
 
@@ -84,11 +89,17 @@ class InferencePipeline:
         self.pir_active = False
         self._pir_triggers = 0
 
+        # Face database
         self._persons = {}
         self._load_face_db()
 
+        # InsightFace
         self._face_app = None
         self._init_insightface()
+
+        # DBSCAN clustering
+        self._clustering = UnknownPersonClustering(eps=0.4, min_samples=2)
+        print("✅ DBSCAN clustering inicijaliziran")
 
         self._start_time = time.time()
 
@@ -252,21 +263,39 @@ class InferencePipeline:
             return detections
 
         faces = []
-        if self._face_app and self._persons:
+        if self._face_app:
             try:
                 faces = self._face_app.get(frame)
             except Exception:
                 pass
 
         for bbox, conf in person_detections:
-            name, face_score = self._match_face_to_person(bbox, faces)
+            name, face_score, cluster_id, face_obj = self._match_face(bbox, faces)
 
             if name:
                 status = "known"
+                cluster_label = None
             elif face_score >= 0.0:
                 status = "unknown"
+                # Pokušaj identificirati klaster
+                if face_obj is not None:
+                    cluster_id, cluster_score = self._clustering.identify_unknown(
+                        face_obj.embedding
+                    )
+                    # Dodaj u clustering buffer ako prođe filtere
+                    if self._clustering.should_add(
+                        face_obj.embedding,
+                        face_score,
+                        float(face_obj.det_score),
+                        self._persons,
+                    ):
+                        self._clustering.add_unknown(
+                            face_obj.embedding, float(face_obj.det_score)
+                        )
+                cluster_label = cluster_id
             else:
                 status = "no_face"
+                cluster_label = None
 
             detections.append(
                 Detection(
@@ -275,14 +304,19 @@ class InferencePipeline:
                     name=name,
                     face_score=face_score,
                     status=status,
+                    cluster_id=cluster_label,
                 )
             )
 
         return detections
 
-    def _match_face_to_person(self, person_bbox, faces) -> tuple:
+    def _match_face(self, person_bbox, faces) -> tuple:
+        """
+        Pronađi lice unutar person bbox-a i identificiraj ga.
+        Vraća: (name, face_score, cluster_id, face_obj)
+        """
         if not faces:
-            return None, -1.0
+            return None, -1.0, None, None
 
         cx, cy, w, h = person_bbox
         px1 = (cx - w / 2) * CAM_WIDTH
@@ -306,11 +340,13 @@ class InferencePipeline:
                     best_face = face
 
         if best_face is None:
-            return None, -1.0
+            return None, -1.0, None, None
 
+        # Provjeri poznate osobe
         emb = best_face.embedding
         best_name = None
         best_score = -1.0
+
         for name, db_emb in self._persons.items():
             score = float(
                 np.dot(emb, db_emb) / (np.linalg.norm(emb) * np.linalg.norm(db_emb))
@@ -320,8 +356,9 @@ class InferencePipeline:
                 best_name = name
 
         if best_score >= SIMILARITY_THRESHOLD:
-            return best_name, best_score
-        return None, best_score
+            return best_name, best_score, None, best_face
+
+        return None, best_score, None, best_face
 
     # ─── Metrike ─────────────────────────────────────────────────────────────
 
@@ -370,3 +407,15 @@ class InferencePipeline:
             if self._latest_metrics is None:
                 return self._build_metrics(0, 0, 0, 0)
             return self._latest_metrics
+
+    def get_clusters(self) -> list:
+        """Vrati trenutne klastere nepoznatih osoba."""
+        return self._clustering.get_clusters()
+
+    def get_clustering_stats(self) -> dict:
+        """Statistike clusteringa."""
+        return self._clustering.get_stats()
+
+    def reset_clustering(self):
+        """Resetiraj clustering podatke."""
+        self._clustering.reset()

@@ -15,6 +15,7 @@ class Detection(BaseModel):
     name: Optional[str]  # ime ako je poznata osoba
     face_score: float  # cosine similarity (-1.0 = nema lica)
     status: str  # "known" | "unknown" | "no_face"
+    cluster_id: Optional[int]  # ID clustera nepoznatih osoba (DBSCAN)
 
 
 class Metrics(BaseModel):
