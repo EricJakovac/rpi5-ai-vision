@@ -33,6 +33,10 @@ ai/recognition/face_database.json
 .ipynb_checkpoints/
 *.ipynb
 
+# Webapp
+webapp/backend/unknown_clusters.json    
+webapp/backend/cloudflared.deb
+
 # Razno
 *.csv
 *.h5
