@@ -9,9 +9,10 @@ import KnownPersons from './components/KnownPersons'
 import ConfidenceMeter from './components/ConfidenceMeter'
 import UnknownClusters from './components/UnknownClusters'
 import './App.css'
+import './Animations.css'
 
 export default function App() {
-  const { metrics, detections, connected } = useWebSocket()
+  const { metrics, detections, connected, connecting } = useWebSocket()
   const [activeModel, setActiveModel] = useState(null)
 
   const [theme, setTheme] = useState(() => {
@@ -34,14 +35,15 @@ export default function App() {
         <div className="header-right">
           <PIRStatus active={metrics?.pir_active} />
           <div className={`connection-status ${connected ? 'connected' : 'disconnected'}`}>
-            <span className="status-dot" />
-            <span>{connected ? 'Spojeno' : 'Odspojeno'}</span>
+            {connecting && !connected
+              ? <span className="status-spinner" />
+              : <span className="status-dot" />
+            }
+            <span>
+              {connected ? 'Spojeno' : connecting ? 'Spajam se...' : 'Odspojeno'}
+            </span>
           </div>
-          <button
-            className="theme-toggle"
-            onClick={toggleTheme}
-            title={theme === 'dark' ? 'Svjetla tema' : 'Tamna tema'}
-          >
+          <button className="theme-toggle" onClick={toggleTheme}>
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
         </div>

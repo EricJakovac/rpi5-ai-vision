@@ -6,16 +6,19 @@ export function useWebSocket() {
   const [metrics, setMetrics] = useState(null)
   const [detections, setDetections] = useState([])
   const [connected, setConnected] = useState(false)
+  const [connecting, setConnecting] = useState(true)  
   const wsRef = useRef(null)
   const reconnectTimeout = useRef(null)
 
   const connect = useCallback(() => {
+    setConnecting(true)  
     try {
       const ws = new WebSocket(WS_URL)
       wsRef.current = ws
 
       ws.onopen = () => {
         setConnected(true)
+        setConnecting(false)  
         console.log('WebSocket spojen')
       }
 
@@ -27,16 +30,20 @@ export function useWebSocket() {
 
       ws.onclose = () => {
         setConnected(false)
-        console.log('WebSocket odspojen, reconnect za 3s...')
-        reconnectTimeout.current = setTimeout(connect, 3000)
+        setConnecting(false)  
+        console.log('WebSocket odspojoen, reconnect za 3s...')
+        reconnectTimeout.current = setTimeout(() => {
+          setConnecting(true)  
+          connect()
+        }, 3000)
       }
 
-      ws.onerror = (error) => {
-        console.error('WebSocket greška:', error)
+      ws.onerror = () => {
+        setConnecting(false)
         ws.close()
       }
     } catch (error) {
-      console.error('WebSocket connection error:', error)
+      setConnecting(false)
       reconnectTimeout.current = setTimeout(connect, 3000)
     }
   }, [])
@@ -49,5 +56,5 @@ export function useWebSocket() {
     }
   }, [connect])
 
-  return { metrics, detections, connected }
+  return { metrics, detections, connected, connecting }  
 }

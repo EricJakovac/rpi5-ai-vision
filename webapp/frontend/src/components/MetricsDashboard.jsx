@@ -1,6 +1,16 @@
 export default function MetricsDashboard({ metrics }) {
   if (!metrics) return (
-    <p className="metrics-loading">Čekam podatke...</p>
+    <div>
+      <p className="metrics-title">Performanse sustava</p>
+      <div className="metrics-grid">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="metric-card">
+            <span className="skeleton skeleton-text" style={{width:'60%', margin:'0 auto'}} />
+            <span className="skeleton skeleton-value" style={{width:'80%', margin:'6px auto 0'}} />
+          </div>
+        ))}
+      </div>
+    </div>
   )
 
   const ramPercent = ((metrics.ram_used_mb / metrics.ram_total_mb) * 100).toFixed(1)
@@ -17,9 +27,7 @@ export default function MetricsDashboard({ metrics }) {
         </div>
         <div className="metric-card">
           <span className="metric-label">Inference</span>
-          <span className="metric-value small">
-            {metrics.inference_ms}ms
-          </span>
+          <span className="metric-value small">{metrics.inference_ms}ms</span>
         </div>
         <div className="metric-card">
           <span className="metric-label">CPU</span>

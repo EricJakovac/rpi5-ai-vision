@@ -1,0 +1,227 @@
+/* ─── Animacije ──────────────────────────────────────────────────────── */
+
+/* 1. PIR pulsiranje */
+@keyframes pir-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.4); }
+  70%  { box-shadow: 0 0 0 8px rgba(0, 212, 170, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 212, 170, 0); }
+}
+
+.pir-dot.active {
+  animation: pulse 1.5s infinite, pir-pulse 1.5s infinite;
+}
+
+/* 2. Fade in za detekcije */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.detection-item {
+  animation: fadeIn 0.3s ease;
+}
+
+.conf-item {
+  animation: fadeIn 0.3s ease;
+}
+
+.cluster-item {
+  animation: fadeIn 0.3s ease;
+}
+
+/* 3. Skeleton loading kad je backend offline */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-card) 25%,
+    var(--bg-card-hover) 50%,
+    var(--bg-card) 75%
+  );
+  background-size: 400px 100%;
+  animation: skeleton-shimmer 1.4s infinite;
+  border-radius: 6px;
+  color: transparent !important;
+  user-select: none;
+}
+
+.skeleton-text {
+  height: 14px;
+  margin: 6px 0;
+  border-radius: 4px;
+}
+
+.skeleton-value {
+  height: 28px;
+  border-radius: 4px;
+}
+
+/* 4. Smooth transition za model promjenu */
+.model-stat-value {
+  transition: all 0.4s ease;
+}
+
+.model-selector select {
+  transition: border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.model-selector select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.model-switching {
+  animation: fadeIn 0.2s ease;
+}
+
+/* 5. Smooth card hover */
+.card {
+  transition: border-color 0.2s ease;
+}
+
+.card:hover {
+  border-color: rgba(0, 212, 170, 0.2);
+}
+
+/* 6. Confidence bar smooth fill */
+.conf-bar-fill {
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 7. Connection status transition */
+.status-dot {
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.connection-status.connected .status-dot {
+  box-shadow: 0 0 6px var(--accent);
+}
+
+/* 8. Theme toggle hover */
+.theme-toggle {
+  transition: all 0.2s ease;
+}
+
+.theme-toggle:hover {
+  transform: rotate(20deg);
+}
+
+/* 9. Detection list fade out kad nema detekcija */
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.detection-item.leaving {
+  animation: fadeOut 0.3s ease forwards;
+}
+
+/* 10. Metric card value update flash */
+@keyframes valueFlash {
+  0%   { color: var(--accent); }
+  50%  { color: #fff; }
+  100% { color: var(--accent); }
+}
+
+.metric-value.updated {
+  animation: valueFlash 0.4s ease;
+}
+
+/* 11. Spin za reset button */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.reset-btn:hover {
+  animation: spin 0.5s ease;
+}
+
+/* 12. Skeleton video placeholder */
+.video-placeholder.offline {
+  background: linear-gradient(
+    90deg,
+    var(--bg-card) 25%,
+    var(--bg-card-hover) 50%,
+    var(--bg-card) 75%
+  );
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.8s infinite;
+}
+
+/* ─── Status indikator ───────────────────────────── */
+@keyframes spinner {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+.status-spinner {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--text-dim);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spinner 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.connection-status.disconnected .status-dot {
+  background: var(--accent-red);
+  animation: dot-pulse 1.2s ease infinite;
+}
+
+/* ─── Model detail fade + scale ──────────────────── */
+.model-detail {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.model-detail.updating {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+/* ─── Reduced motion (pristupačnost) ─────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─── Connecting tekst animacija ─────────────────── */
+@keyframes dots {
+  0%   { content: '.'; }
+  33%  { content: '..'; }
+  66%  { content: '...'; }
+  100% { content: '.'; }
+}
+
+.connecting-text::after {
+  content: '.';
+  animation: dots 1.5s steps(1) infinite;
+}

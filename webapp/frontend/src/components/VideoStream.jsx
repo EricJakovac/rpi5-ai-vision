@@ -10,9 +10,9 @@ export default function VideoStream({ connected }) {
           className="video-stream"
         />
       ) : (
-        <div className="video-placeholder">
+        <div className="video-placeholder offline">
           <span>📷</span>
-          <p>Spajam se na kameru...</p>
+          <p className="connecting-text">Spajam se na kameru</p>
         </div>
       )}
     </div>
