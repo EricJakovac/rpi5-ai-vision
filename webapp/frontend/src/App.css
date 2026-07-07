@@ -513,6 +513,108 @@ body {
   min-width: 2px;
 }
 
+/* ─── Unknown clusters ────────────────────────────── */
+.clusters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.clusters-header .section-title {
+  margin-bottom: 0;
+}
+
+.reset-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.reset-btn:hover {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+.clusters-stats {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.clusters-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.cluster-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  border: 1px solid rgba(248,113,113,0.2);
+}
+
+.cluster-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(248,113,113,0.1);
+  color: var(--accent-red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  border: 1px solid rgba(248,113,113,0.3);
+}
+
+.cluster-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 0.1rem;
+}
+
+.cluster-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cluster-meta {
+  font-size: 0.72rem;
+  color: var(--accent-red);
+}
+
+.cluster-time {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.cluster-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent-red);
+  background: rgba(248,113,113,0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
 /* ─── Responsive ──────────────────────────────────── */
 @media (max-width: 768px) {
   .app-main {

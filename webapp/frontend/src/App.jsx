@@ -7,6 +7,7 @@ import DetectionList from './components/DetectionList'
 import PIRStatus from './components/PIRStatus'
 import KnownPersons from './components/KnownPersons'
 import ConfidenceMeter from './components/ConfidenceMeter'
+import UnknownClusters from './components/UnknownClusters'
 import './App.css'
 
 export default function App() {
@@ -69,6 +70,9 @@ export default function App() {
           </div>
           <div className="card">
             <KnownPersons />
+          </div>
+          <div className="card">
+            <UnknownClusters />
           </div>
         </div>
       </main>
