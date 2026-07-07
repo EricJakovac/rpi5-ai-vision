@@ -1,4 +1,3 @@
-# ai/recognition/clustering.py
 """
 DBSCAN clustering nepoznatih lica.
 Automatski grupira nepoznate osobe bez poznavanja
@@ -21,28 +20,19 @@ from datetime import datetime
 from sklearn.cluster import DBSCAN
 
 CLUSTERS_PATH = Path(__file__).parent / "unknown_clusters.json"
-
-# Threshold ispod kojeg smatramo da je stvarno nepoznata osoba
-# (iznad ovoga → vjerojatno je poznata osoba u lošem kutu)
 KNOWN_EXCLUSION_THRESHOLD = 0.3
 
 
 class UnknownPersonClustering:
-    """
-    Prikuplja embeddings nepoznatih lica i grupira ih
-    pomoću DBSCAN algoritma.
-    """
 
     def __init__(self, eps: float = 0.4, min_samples: int = 2):
         self.eps = eps
         self.min_samples = min_samples
 
-        # Buffer nepoznatih embeddings
         self._embeddings = []
         self._timestamps = []
         self._det_scores = []
 
-        # Rezultati clusteringa
         self._clusters = {}
         self._labels = []
 
@@ -64,15 +54,12 @@ class UnknownPersonClustering:
         3. Nije poznata osoba u lošem kutu
            (best_known_score < KNOWN_EXCLUSION_THRESHOLD)
         """
-        # Uvjet 1 – lice postoji
         if face_score < 0.0:
             return False
 
-        # Uvjet 2 – dobra kvaliteta detekcije
         if det_score < 0.65:
             return False
 
-        # Uvjet 3 – provjeri je li možda poznata osoba
         if known_persons:
             norm = np.linalg.norm(embedding)
             if norm > 0:
@@ -89,24 +76,20 @@ class UnknownPersonClustering:
             )
 
             if best_known >= KNOWN_EXCLUSION_THRESHOLD:
-                return False  # Vjerojatno poznata osoba u lošem kutu
+                return False
 
         return True
 
     def add_unknown(self, embedding: np.ndarray, det_score: float = 1.0):
-        """
-        Dodaj embedding nepoznate osobe u buffer i pokreni clustering.
-        Pretpostavlja da je should_add() već provjeren.
-        """
+        """Dodaj embedding nepoznate osobe u buffer i pokreni clustering."""
         norm = np.linalg.norm(embedding)
         if norm > 0:
             embedding = embedding / norm
 
         self._embeddings.append(embedding)
         self._timestamps.append(datetime.now().isoformat())
-        self._det_scores.append(det_score)
+        self._det_scores.append(float(det_score))
 
-        # Recluster kada imamo dovoljno podataka
         if len(self._embeddings) >= self.min_samples:
             self._run_clustering()
 
@@ -127,7 +110,7 @@ class UnknownPersonClustering:
 
         for label in unique_labels:
             if label == -1:
-                continue  # outlier/šum
+                continue
 
             indices = [i for i, l in enumerate(self._labels) if l == label]
 
@@ -135,11 +118,11 @@ class UnknownPersonClustering:
             centroid = np.mean(cluster_embeddings, axis=0)
             centroid = centroid / np.linalg.norm(centroid)
 
-            existing = self._clusters.get(label, {})
+            existing = self._clusters.get(int(label), {})
 
-            new_clusters[label] = {
-                "cluster_id": label,
-                "count": len(indices),
+            new_clusters[int(label)] = {
+                "cluster_id": int(label),
+                "count": int(len(indices)),
                 "centroid": centroid.tolist(),
                 "first_seen": existing.get("first_seen", self._timestamps[indices[0]]),
                 "last_seen": self._timestamps[indices[-1]],
@@ -171,11 +154,11 @@ class UnknownPersonClustering:
             score = float(np.dot(embedding, centroid))
             if score > best_score:
                 best_score = score
-                best_id = cluster_id
+                best_id = int(cluster_id)
 
         if best_score > (1 - self.eps):
-            return best_id, best_score
-        return None, best_score
+            return best_id, float(best_score)
+        return None, float(best_score)
 
     def get_clusters(self) -> list:
         """Vrati listu svih klastera sortiranu po broju pojavljivanja."""
@@ -183,14 +166,14 @@ class UnknownPersonClustering:
 
     def get_stats(self) -> dict:
         """Statistike clusteringa."""
-        n_outliers = sum(1 for l in self._labels if l == -1)
+        n_outliers = int(sum(1 for l in self._labels if l == -1))
         return {
-            "total_embeddings": len(self._embeddings),
-            "num_clusters": len(self._clusters),
+            "total_embeddings": int(len(self._embeddings)),
+            "num_clusters": int(len(self._clusters)),
             "num_outliers": n_outliers,
-            "eps": self.eps,
-            "min_samples": self.min_samples,
-            "known_exclusion_threshold": KNOWN_EXCLUSION_THRESHOLD,
+            "eps": float(self.eps),
+            "min_samples": int(self.min_samples),
+            "known_exclusion_threshold": float(KNOWN_EXCLUSION_THRESHOLD),
         }
 
     def reset(self):
@@ -216,4 +199,6 @@ class UnknownPersonClustering:
         if CLUSTERS_PATH.exists():
             with open(CLUSTERS_PATH) as f:
                 data = json.load(f)
-            print(f"✅ Clustering: učitano {len(data.get('clusters', {}))} klastera")
+            # Konvertiraj ključeve natrag u int
+            self._clusters = {int(k): v for k, v in data.get("clusters", {}).items()}
+            print(f"✅ Clustering: učitano {len(self._clusters)} klastera")
