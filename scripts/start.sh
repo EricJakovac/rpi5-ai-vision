@@ -37,15 +37,15 @@ cloudflared tunnel --url http://localhost:8000 2>&1 | while IFS= read -r line; d
         URL=$(echo "$line" | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com')
         if [ -n "$URL" ]; then
             echo ""
-            echo "╔══════════════════════════════════════════════════╗"
-            echo "║  🌍 PRODUKCIJSKI URL:                            ║"
-            echo "║  $URL"
-            echo "║                                                  ║"
-            echo "║  Ažuriraj na Vercel:                             ║"
-            echo "║  VITE_API_URL=$URL"
-            echo "║  VITE_WS_URL=${URL/https/wss}/ws"
-            echo "║  VITE_STREAM_URL=$URL/stream"
-            echo "╚══════════════════════════════════════════════════╝"
+            echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════╗"
+            echo "║  🌍 PRODUKCIJSKI URL:                                                                              ║"
+            echo "║  $URL"                                                                                             ║"
+            echo "║                                                                                                    ║"
+            echo "║  Ažuriraj na Vercel:                                                                               ║"
+            echo "║  VITE_API_URL=$URL"                                                                                ║"          
+            echo "║  VITE_WS_URL=${URL/https/wss}/ws"                                                                  ║"
+            echo "║  VITE_STREAM_URL=$URL/stream"                                                                      ║"  
+            echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════╝"
             echo ""
         fi
     fi
