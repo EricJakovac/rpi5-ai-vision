@@ -11,7 +11,6 @@ import json
 from pathlib import Path
 from PIL import Image as PILImage
 from datetime import datetime
-from collections import deque
 
 from camera import CameraManager
 from models import ModelManager
@@ -63,51 +62,34 @@ def nms(boxes, scores, iou_threshold):
 
 
 class InferencePipeline:
-    """
-    Background thread koji:
-    1. Čita frameove s kamere
-    2. Radi detekciju osoba
-    3. Radi prepoznavanje lica
-    4. Čuva rezultate za API
-    """
 
     def __init__(self, camera: CameraManager, model_manager: ModelManager):
         self.camera = camera
         self.model_manager = model_manager
 
-        # Thread control
         self._running = False
         self._thread = None
         self._lock = threading.Lock()
 
-        # Rezultati
         self._latest_frame = None
         self._latest_detections = []
         self._latest_metrics = None
 
-        # FPS tracking
         self._fps_times = []
         self._fps = 0.0
         self._inference_ms = 0.0
         self._detection_ms = 0.0
         self._recognition_ms = 0.0
 
-        # PIR state
         self.pir_active = False
         self._pir_triggers = 0
 
-        # Detection history
-        self._detection_history = deque(maxlen=50)
-
-        # Face database
         self._persons = {}
         self._load_face_db()
 
-        # InsightFace
         self._face_app = None
         self._init_insightface()
 
-        # Start time
         self._start_time = time.time()
 
     def _load_face_db(self):
@@ -145,7 +127,6 @@ class InferencePipeline:
 
     def _inference_loop(self):
         while self._running:
-            # Ako PIR nije aktivan, samo uzmi frame
             if not self.pir_active:
                 frame = self.camera.get_frame()
                 if frame is not None:
@@ -162,37 +143,21 @@ class InferencePipeline:
 
             t_total = time.perf_counter()
 
-            # Agent 1: Detekcija osoba
             t_det = time.perf_counter()
             person_detections = self._detect_persons(frame)
             detection_ms = (time.perf_counter() - t_det) * 1000
 
-            # Agent 2: Prepoznavanje lica
             t_rec = time.perf_counter()
             detections = self._recognize_persons(frame, person_detections)
             recognition_ms = (time.perf_counter() - t_rec) * 1000
 
             total_ms = (time.perf_counter() - t_total) * 1000
 
-            # FPS
             now = time.time()
             self._fps_times.append(now)
             self._fps_times = [t for t in self._fps_times if now - t < 1.0]
             fps = len(self._fps_times)
 
-            # Spremi u history samo ako ima detekcija
-            for det in detections:
-                self._detection_history.append(
-                    {
-                        "timestamp": datetime.now().isoformat(),
-                        "status": det.status,
-                        "name": det.name,
-                        "face_score": det.face_score,
-                        "confidence": det.confidence,
-                    }
-                )
-
-            # Spremi rezultate
             with self._lock:
                 self._latest_frame = frame
                 self._latest_detections = detections
@@ -229,7 +194,7 @@ class InferencePipeline:
             )
             / 255.0
         )
-        img = np.expand_dims(img, axis=0)  # BHWC
+        img = np.expand_dims(img, axis=0)
 
         if input_dtype == np.int8:
             scale, zero_point = input_details[0]["quantization"]
@@ -260,13 +225,13 @@ class InferencePipeline:
             )
             / 255.0
         )
-        img = np.expand_dims(img.transpose(2, 0, 1), axis=0)  # BCHW
+        img = np.expand_dims(img.transpose(2, 0, 1), axis=0)
 
         output = session.run(None, {input_name: img})
         return self._postprocess_yolov8(output[0], tflite=False)
 
     def _postprocess_yolov8(self, output, tflite=False) -> list:
-        predictions = output[0].T  # (8400, 84)
+        predictions = output[0].T
         persons_mask = (np.argmax(predictions[:, 4:], axis=1) == 0) & (
             np.max(predictions[:, 4:], axis=1) > CONF_THRESHOLD
         )
@@ -286,7 +251,6 @@ class InferencePipeline:
         if not person_detections:
             return detections
 
-        # InsightFace detekcija lica jednom za cijeli frame
         faces = []
         if self._face_app and self._persons:
             try:
@@ -406,7 +370,3 @@ class InferencePipeline:
             if self._latest_metrics is None:
                 return self._build_metrics(0, 0, 0, 0)
             return self._latest_metrics
-
-    def get_history(self) -> list:
-        with self._lock:
-            return list(self._detection_history)

@@ -3,13 +3,9 @@ FastAPI backend za RPi5 AI Vision sustav.
 """
 
 import asyncio
-import base64
 import io
 import json
-import socket
-import sys
 import time
-from collections import deque
 from datetime import datetime
 from pathlib import Path
 
@@ -17,21 +13,19 @@ import numpy as np
 import RPi.GPIO as GPIO
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse
 from PIL import Image as PILImage, ImageDraw, ImageFont
 
 from camera import CameraManager
-from models import ModelManager, AVAILABLE_MODELS
+from models import ModelManager
 from pipeline import InferencePipeline
 from schemas import (
     ModelSwitchRequest,
     ModelSwitchResponse,
     PersonsResponse,
     Person,
-    SystemInfo,
     Detection,
     Metrics,
-    UnknownCluster,
 )
 
 # ─── Inicijalizacija ──────────────────────────────────────────────────────────
@@ -93,7 +87,6 @@ async def shutdown():
 async def pir_monitor():
     POST_MOTION_DELAY = 5.0
     last_motion = 0.0
-    was_active = False
 
     while True:
         pir_state = GPIO.input(PIR_PIN)
@@ -220,58 +213,6 @@ async def get_metrics():
 @app.get("/detections")
 async def get_detections():
     return pipeline.get_detections()
-
-
-@app.get("/history")
-async def get_history():
-    """Povijest zadnjih 50 detekcija."""
-    return pipeline.get_history()
-
-
-@app.get("/snapshot")
-async def get_snapshot():
-    """Trenutni frame kao base64 JPEG."""
-    frame = pipeline.get_frame()
-    if frame is None:
-        return JSONResponse({"error": "Nema frame-a"}, status_code=503)
-
-    detections = pipeline.get_detections()
-    jpeg = draw_frame(frame, detections)
-    b64 = base64.b64encode(jpeg).decode("utf-8")
-
-    return {
-        "image": f"data:image/jpeg;base64,{b64}",
-        "timestamp": datetime.now().isoformat(),
-    }
-
-
-@app.get("/session")
-async def get_session():
-    """Statistike trenutne sesije."""
-    history = pipeline.get_history()
-
-    uptime = time.time() - pipeline._start_time
-    hours = int(uptime // 3600)
-    minutes = int((uptime % 3600) // 60)
-    seconds = int(uptime % 60)
-
-    known_names = {}
-    for h in history:
-        if h.get("name"):
-            known_names[h["name"]] = known_names.get(h["name"], 0) + 1
-
-    return {
-        "uptime": f"{hours:02d}:{minutes:02d}:{seconds:02d}",
-        "uptime_seconds": round(uptime),
-        "total_detections": len(history),
-        "known_detections": sum(1 for h in history if h.get("name")),
-        "unknown_detections": sum(
-            1 for h in history if not h.get("name") and h.get("face_score", -1) >= 0
-        ),
-        "no_face_detections": sum(1 for h in history if h.get("face_score", -1) < 0),
-        "person_counts": known_names,
-        "pir_triggers": pipeline._pir_triggers,
-    }
 
 
 @app.get("/models")

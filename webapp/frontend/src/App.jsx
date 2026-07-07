@@ -5,10 +5,8 @@ import MetricsDashboard from './components/MetricsDashboard'
 import ModelSelector from './components/ModelSelector'
 import DetectionList from './components/DetectionList'
 import PIRStatus from './components/PIRStatus'
-import SnapshotButton from './components/SnapshotButton'
-import SessionStats from './components/SessionStats'
-import DetectionHistory from './components/DetectionHistory'
 import KnownPersons from './components/KnownPersons'
+import ConfidenceMeter from './components/ConfidenceMeter'
 import './App.css'
 
 export default function App() {
@@ -26,9 +24,7 @@ export default function App() {
     localStorage.setItem('theme', theme)
   }, [theme])
 
-  const toggleTheme = () => {
-    setTheme(t => t === 'dark' ? 'light' : 'dark')
-  }
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark')
 
   return (
     <div className="app">
@@ -51,24 +47,16 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        {/* ─── Lijevi panel ─────────────────────── */}
         <div className="left-panel">
           <VideoStream connected={connected} />
-
           <div className="card">
             <DetectionList detections={detections} />
           </div>
-
           <div className="card">
-            <SessionStats />
-          </div>
-
-          <div className="card">
-            <DetectionHistory />
+            <ConfidenceMeter detections={detections} />
           </div>
         </div>
 
-        {/* ─── Desni panel ──────────────────────── */}
         <div className="right-panel">
           <div className="card">
             <ModelSelector
@@ -76,17 +64,11 @@ export default function App() {
               currentMetrics={metrics}
             />
           </div>
-
           <div className="card">
             <MetricsDashboard metrics={metrics} />
           </div>
-
           <div className="card">
             <KnownPersons />
-          </div>
-
-          <div className="card">
-            <SnapshotButton />
           </div>
         </div>
       </main>

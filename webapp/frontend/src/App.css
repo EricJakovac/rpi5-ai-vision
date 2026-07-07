@@ -437,107 +437,6 @@ body {
   padding: 0.5rem;
 }
 
-/* ─── History ─────────────────────────────────────── */
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  max-height: 250px;
-  overflow-y: auto;
-}
-
-.history-item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.45rem 0.6rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-}
-
-.history-item.known { background: rgba(0,212,170,0.05); border-color: rgba(0,212,170,0.15); }
-.history-item.unknown { background: rgba(248,113,113,0.05); border-color: rgba(248,113,113,0.15); }
-.history-item.no_face { background: rgba(96,165,250,0.05); border-color: rgba(96,165,250,0.15); }
-
-.history-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.known .history-dot { background: var(--accent); }
-.unknown .history-dot { background: var(--accent-red); }
-.no_face .history-dot { background: var(--accent-blue); }
-
-.history-info { flex: 1; display: flex; flex-direction: column; }
-.history-name { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
-.history-score { font-size: 0.68rem; color: var(--text-secondary); }
-.history-time { font-size: 0.68rem; color: var(--text-dim); flex-shrink: 0; }
-
-/* ─── Session stats ───────────────────────────────── */
-.session-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.session-stat {
-  background: var(--bg-primary);
-  border-radius: 8px;
-  padding: 0.5rem;
-  text-align: center;
-}
-
-.session-label {
-  display: block;
-  font-size: 0.62rem;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.session-value {
-  display: block;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--accent);
-  margin-top: 0.15rem;
-}
-
-.session-value.known { color: var(--accent); }
-.session-value.unknown { color: var(--accent-red); }
-
-.person-counts { display: flex; flex-direction: column; gap: 0.35rem; }
-
-.person-count-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.6rem;
-  background: var(--bg-primary);
-  border-radius: 6px;
-}
-
-.person-count-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex-shrink: 0;
-}
-
-.person-count-name { flex: 1; font-size: 0.82rem; color: var(--text-primary); }
-
-.person-count-badge {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--accent);
-  background: var(--accent-dim);
-  padding: 0.1rem 0.4rem;
-  border-radius: 10px;
-}
-
 /* ─── Known persons ───────────────────────────────── */
 .persons-list { display: flex; flex-direction: column; gap: 0.5rem; }
 
@@ -570,37 +469,48 @@ body {
 .person-name { font-size: 0.88rem; font-weight: 600; color: var(--text-primary); }
 .person-meta { font-size: 0.72rem; color: var(--text-secondary); margin-top: 0.1rem; }
 
-/* ─── Snapshot ────────────────────────────────────── */
-.snapshot {
+/* ─── Confidence meter ────────────────────────────── */
+.confidence-meter {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 0.75rem;
 }
 
-.snapshot-btn {
-  flex: 1;
-  background: var(--accent-dim);
-  color: var(--accent);
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  padding: 0.6rem 1rem;
-  font-size: 0.88rem;
+.conf-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.conf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.conf-label {
+  font-size: 0.85rem;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
+  color: var(--text-primary);
 }
 
-.snapshot-btn:hover {
-  background: var(--accent);
-  color: var(--bg-primary);
+.conf-percent {
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
-.snapshot-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.conf-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  overflow: hidden;
+}
 
-.snapshot-time {
-  font-size: 0.72rem;
-  color: var(--text-secondary);
-  white-space: nowrap;
+.conf-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  min-width: 2px;
 }
 
 /* ─── Responsive ──────────────────────────────────── */

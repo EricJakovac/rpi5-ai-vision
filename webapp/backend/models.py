@@ -38,14 +38,6 @@ AVAILABLE_MODELS = [
         "benchmark_fps": 4.6,
     },
     {
-        "name": "YOLOv8n ONNX FP32",
-        "filename": "yolov8n_fp32.onnx",
-        "format": "onnx",
-        "quantization": "fp32",
-        "map_score": 0.608,
-        "benchmark_fps": 6.3,
-    },
-    {
         "name": "YOLOv10n TFLite INT8",
         "filename": "yolov10n_int8.tflite",
         "format": "tflite",

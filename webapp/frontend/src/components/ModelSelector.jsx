@@ -8,8 +8,6 @@ const SHORT_NAMES = {
   'yolov8n_int8.tflite':  'YOLOv8n INT8 ⭐',
   'yolov8n_fp32.tflite':  'YOLOv8n FP32',
   'yolov8s_int8.tflite':  'YOLOv8s INT8',
-  'yolov8s_fp32.tflite':  'YOLOv8s FP32',
-  'yolov8n_fp32.onnx':    'YOLOv8n ONNX',
   'yolov10n_int8.tflite': 'YOLOv10n INT8',
   'yolo11n_int8.tflite':  'YOLOv11n INT8',
 }
