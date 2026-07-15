@@ -42,3 +42,5 @@ webapp/backend/cloudflared.deb
 *.h5
 .lgd-*
 .claude/
+*.deb
+*txt
