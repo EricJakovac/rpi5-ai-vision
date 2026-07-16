@@ -19,6 +19,7 @@ datasets/
 ai/recognition/videos
 ai/recognition/pictures
 ai/recognition/face_database.json
+ai/detection/training/
 
 # Model saved files
 *_saved_model/
