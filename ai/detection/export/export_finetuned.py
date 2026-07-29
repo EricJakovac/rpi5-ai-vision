@@ -11,11 +11,11 @@ MODELS_DIR = BASE_DIR / "ai" / "detection" / "models"
 CALIB_DATA = str(BASE_DIR / "datasets" / "Rpi5-ai-vision.yolov8" / "data.yaml")
 
 FINETUNED_MODELS = [
-    {"name": "yolov8n", "arch": "yolov8"},
-    {"name": "yolov8s", "arch": "yolov8"},
-    {"name": "yolov10n", "arch": "yolov10"},
-    {"name": "yolo11n", "arch": "yolo11"},
-    {"name": "rtdetr-l", "arch": "rtdetr"},
+    {"name": "yolov8n_v2", "arch": "yolov8"},
+    {"name": "yolov8s_v2", "arch": "yolov8"},
+    {"name": "yolov10n_v2", "arch": "yolov10"},
+    {"name": "yolo11n_v2", "arch": "yolo11"},
+    {"name": "rtdetr-l_v2", "arch": "rtdetr"},
 ]
 
 
@@ -137,7 +137,7 @@ def main():
                 print(f"  {f.name}")
 
     print(f"\nℹ️  Kopiraj na RPi:")
-    print(f"  scp ai/detection/models/tflite/int8/*_ft_* \\")
+    print(f"  scp ai/detection/models/tflite/int8/*v2_ft_* \\")
     print(
         f"      ericjakovac@192.168.1.234:~/Desktop/rpi5-ai-vision/ai/detection/models/tflite/int8/"
     )
