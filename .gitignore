@@ -45,3 +45,4 @@ webapp/backend/cloudflared.deb
 .claude/
 *.deb
 *txt
+*.env.*
