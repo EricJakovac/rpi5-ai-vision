@@ -63,6 +63,24 @@ ALL_MODELS = [
     {"filename": "yolov8s_ft_int8.onnx",    "format": "onnx",   "quantization": "int8", "arch": "yolov8"},
     {"filename": "yolov10n_ft_int8.onnx",   "format": "onnx",   "quantization": "int8", "arch": "yolov10"},
     {"filename": "yolo11n_ft_int8.onnx",    "format": "onnx",   "quantization": "int8", "arch": "yolo11"},
+    # ─── FINE-TUNED ───────────────────────────────────────────────
+    {"filename": "yolov8n_v2_ft_fp32.tflite",  "format": "tflite", "quantization": "fp32", "arch": "yolov8"},
+    {"filename": "yolov8s_v2_ft_fp32.tflite",  "format": "tflite", "quantization": "fp32", "arch": "yolov8"},
+    {"filename": "yolov10n_v2_ft_fp32.tflite", "format": "tflite", "quantization": "fp32", "arch": "yolov10"},
+    {"filename": "yolo11n_v2_ft_fp32.tflite",  "format": "tflite", "quantization": "fp32", "arch": "yolo11"},
+    {"filename": "yolov8n_v2_ft_int8.tflite",  "format": "tflite", "quantization": "int8", "arch": "yolov8"},
+    {"filename": "yolov8s_v2_ft_int8.tflite",  "format": "tflite", "quantization": "int8", "arch": "yolov8"},
+    {"filename": "yolov10n_v2_ft_int8.tflite", "format": "tflite", "quantization": "int8", "arch": "yolov10"},
+    {"filename": "yolo11n_v2_ft_int8.tflite",  "format": "tflite", "quantization": "int8", "arch": "yolo11"},
+    {"filename": "yolov8n_v2_ft_fp32.onnx",    "format": "onnx",   "quantization": "fp32", "arch": "yolov8"},
+    {"filename": "yolov8s_v2_ft_fp32.onnx",    "format": "onnx",   "quantization": "fp32", "arch": "yolov8"},
+    {"filename": "yolov10n_v2_ft_fp32.onnx",   "format": "onnx",   "quantization": "fp32", "arch": "yolov10"},
+    {"filename": "yolo11n_v2_ft_fp32.onnx",    "format": "onnx",   "quantization": "fp32", "arch": "yolo11"},
+    {"filename": "rtdetr-l_v2_ft_fp32.onnx",   "format": "onnx",   "quantization": "fp32", "arch": "rtdetr"},
+    {"filename": "yolov8n_v2_ft_int8.onnx",    "format": "onnx",   "quantization": "int8", "arch": "yolov8"},
+    {"filename": "yolov8s_v2_ft_int8.onnx",    "format": "onnx",   "quantization": "int8", "arch": "yolov8"},
+    {"filename": "yolov10n_v2_ft_int8.onnx",   "format": "onnx",   "quantization": "int8", "arch": "yolov10"},
+    {"filename": "yolo11n_v2_ft_int8.onnx",    "format": "onnx",   "quantization": "int8", "arch": "yolo11"},
 ]
 
 IMAGE_SIZE = 640
@@ -332,7 +350,7 @@ def postprocess_rtdetr(output, orig_w, orig_h, scale, pad_x, pad_y):
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def is_finetuned(filename: str) -> bool:
-    return "_ft_" in filename
+    return "_ft_" in filename or "_v2_ft_" in filename
 
 
 # ─── Inference ───────────────────────────────────────────────────────────────
@@ -609,7 +627,7 @@ def evaluate_model(model_info: dict, dataset: list, model_type: str) -> dict:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--type", default="pretrained",
-                        choices=["pretrained", "finetuned"])
+                        choices=["pretrained", "finetuned", "finetuned-v2"])
     parser.add_argument("--models", nargs="+", default=None)
     parser.add_argument("--output", default=None)
     args = parser.parse_args()
