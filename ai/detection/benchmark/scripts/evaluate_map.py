@@ -3,6 +3,7 @@ mAP + FPS + RAM + Temp evaluacija na RPi 5.
 Korištenje:
     python3 evaluate_map.py --type pretrained
     python3 evaluate_map.py --type finetuned
+    python3 evaluate_map.py --type pretrained --models yolov8n_fp32.tflite yolov8n_fp32.onnx
 """
 
 import argparse
@@ -26,28 +27,42 @@ TEST_IMAGES = DATASET_DIR / "test" / "images"
 TEST_LABELS = DATASET_DIR / "test" / "labels"
 
 ALL_MODELS = [
-    # TFLite FP32
+    # ─── PRETRAINED ───────────────────────────────────────────────
     {"filename": "yolov8n_fp32.tflite",  "format": "tflite", "quantization": "fp32", "arch": "yolov8"},
     {"filename": "yolov8s_fp32.tflite",  "format": "tflite", "quantization": "fp32", "arch": "yolov8"},
     {"filename": "yolov10n_fp32.tflite", "format": "tflite", "quantization": "fp32", "arch": "yolov10"},
     {"filename": "yolo11n_fp32.tflite",  "format": "tflite", "quantization": "fp32", "arch": "yolo11"},
-    # TFLite INT8
     {"filename": "yolov8n_int8.tflite",  "format": "tflite", "quantization": "int8", "arch": "yolov8"},
     {"filename": "yolov8s_int8.tflite",  "format": "tflite", "quantization": "int8", "arch": "yolov8"},
     {"filename": "yolov10n_int8.tflite", "format": "tflite", "quantization": "int8", "arch": "yolov10"},
     {"filename": "yolo11n_int8.tflite",  "format": "tflite", "quantization": "int8", "arch": "yolo11"},
-    # ONNX FP32
     {"filename": "yolov8n_fp32.onnx",    "format": "onnx",   "quantization": "fp32", "arch": "yolov8"},
     {"filename": "yolov8s_fp32.onnx",    "format": "onnx",   "quantization": "fp32", "arch": "yolov8"},
     {"filename": "yolov10n_fp32.onnx",   "format": "onnx",   "quantization": "fp32", "arch": "yolov10"},
     {"filename": "yolo11n_fp32.onnx",    "format": "onnx",   "quantization": "fp32", "arch": "yolo11"},
     {"filename": "rtdetr-l_fp32.onnx",   "format": "onnx",   "quantization": "fp32", "arch": "rtdetr"},
-    # ONNX INT8
     {"filename": "yolov8n_int8.onnx",    "format": "onnx",   "quantization": "int8", "arch": "yolov8"},
     {"filename": "yolov8s_int8.onnx",    "format": "onnx",   "quantization": "int8", "arch": "yolov8"},
     {"filename": "yolov10n_int8.onnx",   "format": "onnx",   "quantization": "int8", "arch": "yolov10"},
     {"filename": "yolo11n_int8.onnx",    "format": "onnx",   "quantization": "int8", "arch": "yolo11"},
-    {"filename": "rtdetr-l_int8.onnx",   "format": "onnx",   "quantization": "int8", "arch": "rtdetr"},
+    # ─── FINE-TUNED ───────────────────────────────────────────────
+    {"filename": "yolov8n_ft_fp32.tflite",  "format": "tflite", "quantization": "fp32", "arch": "yolov8"},
+    {"filename": "yolov8s_ft_fp32.tflite",  "format": "tflite", "quantization": "fp32", "arch": "yolov8"},
+    {"filename": "yolov10n_ft_fp32.tflite", "format": "tflite", "quantization": "fp32", "arch": "yolov10"},
+    {"filename": "yolo11n_ft_fp32.tflite",  "format": "tflite", "quantization": "fp32", "arch": "yolo11"},
+    {"filename": "yolov8n_ft_int8.tflite",  "format": "tflite", "quantization": "int8", "arch": "yolov8"},
+    {"filename": "yolov8s_ft_int8.tflite",  "format": "tflite", "quantization": "int8", "arch": "yolov8"},
+    {"filename": "yolov10n_ft_int8.tflite", "format": "tflite", "quantization": "int8", "arch": "yolov10"},
+    {"filename": "yolo11n_ft_int8.tflite",  "format": "tflite", "quantization": "int8", "arch": "yolo11"},
+    {"filename": "yolov8n_ft_fp32.onnx",    "format": "onnx",   "quantization": "fp32", "arch": "yolov8"},
+    {"filename": "yolov8s_ft_fp32.onnx",    "format": "onnx",   "quantization": "fp32", "arch": "yolov8"},
+    {"filename": "yolov10n_ft_fp32.onnx",   "format": "onnx",   "quantization": "fp32", "arch": "yolov10"},
+    {"filename": "yolo11n_ft_fp32.onnx",    "format": "onnx",   "quantization": "fp32", "arch": "yolo11"},
+    {"filename": "rtdetr-l_ft_fp32.onnx",   "format": "onnx",   "quantization": "fp32", "arch": "rtdetr"},
+    {"filename": "yolov8n_ft_int8.onnx",    "format": "onnx",   "quantization": "int8", "arch": "yolov8"},
+    {"filename": "yolov8s_ft_int8.onnx",    "format": "onnx",   "quantization": "int8", "arch": "yolov8"},
+    {"filename": "yolov10n_ft_int8.onnx",   "format": "onnx",   "quantization": "int8", "arch": "yolov10"},
+    {"filename": "yolo11n_ft_int8.onnx",    "format": "onnx",   "quantization": "int8", "arch": "yolo11"},
 ]
 
 IMAGE_SIZE = 640
@@ -106,14 +121,59 @@ def load_test_set() -> list:
     return dataset
 
 
-# ─── Preprocess ──────────────────────────────────────────────────────────────
+# ─── Preprocess – Letterbox ───────────────────────────────────────────────────
 
 def preprocess_image(img_path: Path) -> tuple:
+    """Letterbox resize – čuva aspect ratio kao Ultralytics."""
     from PIL import Image
     img = Image.open(img_path).convert("RGB")
     orig_w, orig_h = img.size
-    arr = np.array(img.resize((IMAGE_SIZE, IMAGE_SIZE)), dtype=np.float32) / 255.0
-    return arr, orig_w, orig_h
+
+    scale = IMAGE_SIZE / max(orig_w, orig_h)
+    new_w = int(orig_w * scale)
+    new_h = int(orig_h * scale)
+
+    img_resized = img.resize((new_w, new_h), Image.BILINEAR)
+    pad_img = Image.new("RGB", (IMAGE_SIZE, IMAGE_SIZE), (114, 114, 114))
+    pad_x = (IMAGE_SIZE - new_w) // 2
+    pad_y = (IMAGE_SIZE - new_h) // 2
+    pad_img.paste(img_resized, (pad_x, pad_y))
+
+    arr = np.array(pad_img, dtype=np.float32) / 255.0
+    return arr, orig_w, orig_h, scale, pad_x, pad_y
+
+
+# ─── Decode bbox ─────────────────────────────────────────────────────────────
+
+def decode_bbox(x1_or_cx, y1_or_cy, x2_or_w, y2_or_h,
+                scale, pad_x, pad_y,
+                normalized=False, is_cxcywh=False):
+    """Konvertira bbox iz 640x640 letterbox prostora u originalne dimenzije."""
+    if is_cxcywh:
+        cx, cy, w, h = x1_or_cx, y1_or_cy, x2_or_w, y2_or_h
+        if normalized:
+            cx *= IMAGE_SIZE
+            cy *= IMAGE_SIZE
+            w  *= IMAGE_SIZE
+            h  *= IMAGE_SIZE
+        x1 = cx - w / 2
+        y1 = cy - h / 2
+        x2 = cx + w / 2
+        y2 = cy + h / 2
+    else:
+        x1, y1, x2, y2 = x1_or_cx, y1_or_cy, x2_or_w, y2_or_h
+        if normalized:
+            x1 *= IMAGE_SIZE
+            y1 *= IMAGE_SIZE
+            x2 *= IMAGE_SIZE
+            y2 *= IMAGE_SIZE
+
+    x1 = (x1 - pad_x) / scale
+    y1 = (y1 - pad_y) / scale
+    x2 = (x2 - pad_x) / scale
+    y2 = (y2 - pad_y) / scale
+
+    return x1, y1, x2, y2
 
 
 # ─── NMS ─────────────────────────────────────────────────────────────────────
@@ -145,21 +205,15 @@ def nms(boxes, scores, iou_threshold):
 
 # ─── Postprocess ─────────────────────────────────────────────────────────────
 
-def postprocess_yolov8(output, orig_w, orig_h):
-    """
-    YOLOv8/YOLOv11 output: (1, 84, 8400)
-    Stupci: [cx, cy, w, h, cls0_score, ..., cls79_score]
-    TFLite: koordinate normalizirane 0-1
-    ONNX:   koordinate u pikselima 0-640
-    """
+def postprocess_yolov8(output, orig_w, orig_h, scale, pad_x, pad_y):
+    """Pretrained YOLOv8/v11: (1, 84, 8400)"""
     pred = output[0]
     if pred.shape[0] == 84:
-        pred = pred.T  # (8400, 84)
+        pred = pred.T
 
     person_scores = pred[:, 4]
     mask = person_scores > CONF_THRESHOLD
     pred = pred[mask]
-
     if len(pred) == 0:
         return []
 
@@ -170,113 +224,135 @@ def postprocess_yolov8(output, orig_w, orig_h):
     results = []
     for i in keep:
         cx, cy, w, h = boxes[i]
-        # Detektiraj je li normalizirano (TFLite) ili pikseli (ONNX)
-        if cx > 1.0 or cy > 1.0 or w > 1.0 or h > 1.0:
-            # ONNX – koordinate u pikselima
-            x1 = (cx - w / 2) / IMAGE_SIZE * orig_w
-            y1 = (cy - h / 2) / IMAGE_SIZE * orig_h
-            x2 = (cx + w / 2) / IMAGE_SIZE * orig_w
-            y2 = (cy + h / 2) / IMAGE_SIZE * orig_h
-        else:
-            # TFLite – koordinate normalizirane 0-1
-            x1 = (cx - w / 2) * orig_w
-            y1 = (cy - h / 2) * orig_h
-            x2 = (cx + w / 2) * orig_w
-            y2 = (cy + h / 2) * orig_h
-
-        results.append({
-            "class": 0,
-            "bbox": [x1, y1, x2, y2],
-            "score": float(scores[i])
-        })
+        normalized = not (cx > 1.0 or cy > 1.0 or w > 1.0 or h > 1.0)
+        x1, y1, x2, y2 = decode_bbox(
+            cx, cy, w, h, scale, pad_x, pad_y,
+            normalized=normalized, is_cxcywh=True
+        )
+        results.append({"class": 0, "bbox": [x1, y1, x2, y2], "score": float(scores[i])})
     return results
 
 
-def postprocess_yolov10(output, orig_w, orig_h, is_tflite=False):
-    """
-    YOLOv10 output: (1, 300, 6) → [x1, y1, x2, y2, score, class]
-    TFLite: koordinate normalizirane 0-1
-    ONNX:   koordinate u pikselima 0-640
-    """
-    preds = output[0][0]  # (300, 6)
+def postprocess_yolov8_ft(output, orig_w, orig_h, scale, pad_x, pad_y):
+    """Fine-tuned YOLOv8/v11: (1, 5, 8400), nc=1"""
+    pred = output[0]
+    if pred.shape[0] == 5:
+        pred = pred.T
+
+    scores = pred[:, 4]
+    mask = scores > CONF_THRESHOLD
+    pred = pred[mask]
+    if len(pred) == 0:
+        return []
+
+    # Auto-detektiraj normalizirano ili pikseli
+    normalized = pred[:, :4].max() <= 1.0
+
+    boxes_640 = pred[:, :4].copy()
+    if normalized:
+        boxes_640[:, 0] = pred[:, 0] * IMAGE_SIZE
+        boxes_640[:, 1] = pred[:, 1] * IMAGE_SIZE
+        boxes_640[:, 2] = pred[:, 2] * IMAGE_SIZE
+        boxes_640[:, 3] = pred[:, 3] * IMAGE_SIZE
+
+    scores = pred[:, 4]
+    keep = nms(boxes_640, scores, IOU_THRESHOLD)
+
+    results = []
+    for i in keep:
+        cx, cy, w, h = boxes_640[i]
+        x1, y1, x2, y2 = decode_bbox(
+            cx, cy, w, h, scale, pad_x, pad_y,
+            normalized=False, is_cxcywh=True
+        )
+        results.append({"class": 0, "bbox": [x1, y1, x2, y2], "score": float(scores[i])})
+    return results
+
+
+def postprocess_yolov10(output, orig_w, orig_h, scale, pad_x, pad_y, is_tflite=False):
+    """Pretrained YOLOv10: (1, 300, 6) → [x1,y1,x2,y2,score,class]"""
+    preds = output[0][0]
     results = []
     for pred in preds:
-        x1 = float(pred[0])
-        y1 = float(pred[1])
-        x2 = float(pred[2])
-        y2 = float(pred[3])
+        x1, y1, x2, y2 = float(pred[0]), float(pred[1]), float(pred[2]), float(pred[3])
         score = float(pred[4])
         cls = int(pred[5])
         if score < CONF_THRESHOLD or cls != 0:
             continue
-
-        if is_tflite:
-            # Koordinate normalizirane 0-1
-            results.append({
-                "class": 0,
-                "bbox": [
-                    x1 * orig_w,
-                    y1 * orig_h,
-                    x2 * orig_w,
-                    y2 * orig_h,
-                ],
-                "score": score
-            })
-        else:
-            # Koordinate u pikselima 0-640
-            results.append({
-                "class": 0,
-                "bbox": [
-                    x1 / IMAGE_SIZE * orig_w,
-                    y1 / IMAGE_SIZE * orig_h,
-                    x2 / IMAGE_SIZE * orig_w,
-                    y2 / IMAGE_SIZE * orig_h,
-                ],
-                "score": score
-            })
+        x1, y1, x2, y2 = decode_bbox(
+            x1, y1, x2, y2, scale, pad_x, pad_y,
+            normalized=is_tflite, is_cxcywh=False
+        )
+        results.append({"class": 0, "bbox": [x1, y1, x2, y2], "score": score})
     return results
 
 
-def postprocess_rtdetr(output, orig_w, orig_h):
-    """
-    RT-DETR output: (1, 300, 4+N) → bbox + scores per class
-    Koordinate normalizirane 0-1
-    """
-    preds = output[0][0]  # (300, N)
+def postprocess_yolov10_ft(output, orig_w, orig_h, scale, pad_x, pad_y):
+    """Fine-tuned YOLOv10/RT-DETR: (1, 300, 6), auto-detektiraj koordinate"""
+    preds = output[0][0]
+    if len(preds) == 0:
+        return []
+
+    max_coord = float(max(preds[0][0], preds[0][2]))
+    normalized = max_coord <= 1.0
+
     results = []
     for pred in preds:
-        # RT-DETR: [cx, cy, w, h, cls0_score, cls1_score, ...]
-        if len(pred) < 5:
-            continue
-        cx, cy, w, h = float(pred[0]), float(pred[1]), float(pred[2]), float(pred[3])
-        # Person score = index 4
+        x1, y1, x2, y2 = float(pred[0]), float(pred[1]), float(pred[2]), float(pred[3])
         score = float(pred[4])
         if score < CONF_THRESHOLD:
             continue
-        # Koordinate normalizirane 0-1
-        x1 = (cx - w / 2) * orig_w
-        y1 = (cy - h / 2) * orig_h
-        x2 = (cx + w / 2) * orig_w
-        y2 = (cy + h / 2) * orig_h
-        results.append({
-            "class": 0,
-            "bbox": [x1, y1, x2, y2],
-            "score": score
-        })
+        x1, y1, x2, y2 = decode_bbox(
+            x1, y1, x2, y2, scale, pad_x, pad_y,
+            normalized=normalized, is_cxcywh=False
+        )
+        results.append({"class": 0, "bbox": [x1, y1, x2, y2], "score": score})
     return results
+
+
+def postprocess_rtdetr(output, orig_w, orig_h, scale, pad_x, pad_y):
+    """Pretrained RT-DETR: (1, 300, N) → [cx,cy,w,h,cls0_score,...]"""
+    preds = output[0][0]
+    results = []
+    for pred in preds:
+        if len(pred) < 5:
+            continue
+        cx, cy, w, h = float(pred[0]), float(pred[1]), float(pred[2]), float(pred[3])
+        score = float(pred[4])
+        if score < CONF_THRESHOLD:
+            continue
+        x1, y1, x2, y2 = decode_bbox(
+            cx, cy, w, h, scale, pad_x, pad_y,
+            normalized=True, is_cxcywh=True
+        )
+        results.append({"class": 0, "bbox": [x1, y1, x2, y2], "score": score})
+    return results
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+def is_finetuned(filename: str) -> bool:
+    return "_ft_" in filename
 
 
 # ─── Inference ───────────────────────────────────────────────────────────────
 
 def run_tflite_inference(interpreter, input_details, output_details,
-                         img_arr, orig_w, orig_h, arch="yolov8"):
+                         img_arr, orig_w, orig_h, scale, pad_x, pad_y,
+                         arch="yolov8", filename=""):
     input_dtype = input_details[0]["dtype"]
-    inp = np.expand_dims(img_arr, 0)  # BHWC
+    input_shape = input_details[0]["shape"]
+    output_shape = output_details[0]["shape"]
+
+    if input_shape[1] == 3:
+        inp = np.expand_dims(img_arr.transpose(2, 0, 1), 0)  # BCHW
+    else:
+        inp = np.expand_dims(img_arr, 0)  # BHWC
 
     if input_dtype == np.int8:
-        scale, zero_point = input_details[0]["quantization"]
-        if scale != 0:
-            inp = (inp / scale + zero_point).astype(np.int8)
+        s, zp = input_details[0]["quantization"]
+        if s != 0:
+            inp = (inp / s + zp).astype(np.int8)
 
     t0 = time.perf_counter()
     interpreter.set_tensor(input_details[0]["index"], inp)
@@ -285,16 +361,24 @@ def run_tflite_inference(interpreter, input_details, output_details,
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
     if input_dtype == np.int8:
-        out_scale, out_zp = output_details[0]["quantization"]
-        if out_scale != 0:
-            output = (output.astype(np.float32) - out_zp) * out_scale
+        os_, ozp = output_details[0]["quantization"]
+        if os_ != 0:
+            output = (output.astype(np.float32) - ozp) * os_
 
-    if arch == "yolov10":
-        return postprocess_yolov10([output], orig_w, orig_h, is_tflite=True), elapsed_ms
-    return postprocess_yolov8(output, orig_w, orig_h), elapsed_ms
+    ft = is_finetuned(filename)
+
+    if len(output_shape) == 3 and output_shape[2] == 6:
+        if ft:
+            return postprocess_yolov10_ft([output], orig_w, orig_h, scale, pad_x, pad_y), elapsed_ms
+        return postprocess_yolov10([output], orig_w, orig_h, scale, pad_x, pad_y, is_tflite=True), elapsed_ms
+    elif len(output_shape) == 3 and output_shape[1] == 5:
+        return postprocess_yolov8_ft(output, orig_w, orig_h, scale, pad_x, pad_y), elapsed_ms
+    else:
+        return postprocess_yolov8(output, orig_w, orig_h, scale, pad_x, pad_y), elapsed_ms
 
 
-def run_onnx_inference(session, img_arr, orig_w, orig_h, arch="yolov8"):
+def run_onnx_inference(session, img_arr, orig_w, orig_h, scale, pad_x, pad_y,
+                       arch="yolov8", filename=""):
     input_name = session.get_inputs()[0].name
     inp = np.expand_dims(img_arr.transpose(2, 0, 1), 0)  # BCHW
 
@@ -302,11 +386,17 @@ def run_onnx_inference(session, img_arr, orig_w, orig_h, arch="yolov8"):
     output = session.run(None, {input_name: inp})
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
-    if arch == "rtdetr":
-        return postprocess_rtdetr(output, orig_w, orig_h), elapsed_ms
-    if arch == "yolov10":
-        return postprocess_yolov10(output, orig_w, orig_h, is_tflite=False), elapsed_ms
-    return postprocess_yolov8(output[0], orig_w, orig_h), elapsed_ms
+    ft = is_finetuned(filename)
+    out_shape = output[0].shape
+
+    if len(out_shape) == 3 and out_shape[2] == 6:
+        if arch == "rtdetr" and not ft:
+            return postprocess_rtdetr(output, orig_w, orig_h, scale, pad_x, pad_y), elapsed_ms
+        return postprocess_yolov10_ft(output, orig_w, orig_h, scale, pad_x, pad_y), elapsed_ms
+    elif len(out_shape) == 3 and out_shape[1] == 5:
+        return postprocess_yolov8_ft(output[0], orig_w, orig_h, scale, pad_x, pad_y), elapsed_ms
+    else:
+        return postprocess_yolov8(output[0], orig_w, orig_h, scale, pad_x, pad_y), elapsed_ms
 
 
 # ─── mAP računanje ───────────────────────────────────────────────────────────
@@ -327,13 +417,13 @@ def compute_iou(box1, box2):
 def compute_map(all_detections, all_ground_truths, iou_thresholds):
     aps = []
     for iou_thresh in iou_thresholds:
-        tp_list, fp_list, scores_list = [], [], []
+        all_scores, all_tp, all_fp = [], [], []
         n_gt = sum(len(gt) for gt in all_ground_truths)
 
         for dets, gts in zip(all_detections, all_ground_truths):
             matched = [False] * len(gts)
             for det in sorted(dets, key=lambda x: x["score"], reverse=True):
-                scores_list.append(det["score"])
+                all_scores.append(det["score"])
                 best_iou, best_j = 0, -1
                 for j, gt in enumerate(gts):
                     if matched[j]:
@@ -342,28 +432,34 @@ def compute_map(all_detections, all_ground_truths, iou_thresholds):
                     if iou > best_iou:
                         best_iou, best_j = iou, j
                 if best_iou >= iou_thresh and best_j >= 0:
-                    tp_list.append(1)
-                    fp_list.append(0)
+                    all_tp.append(1)
+                    all_fp.append(0)
                     matched[best_j] = True
                 else:
-                    tp_list.append(0)
-                    fp_list.append(1)
+                    all_tp.append(0)
+                    all_fp.append(1)
 
-        if not scores_list:
+        if not all_scores:
             aps.append(0.0)
             continue
 
-        idx = np.argsort(scores_list)[::-1]
-        tp_cum = np.cumsum(np.array(tp_list)[idx])
-        fp_cum = np.cumsum(np.array(fp_list)[idx])
+        idx = np.argsort(all_scores)[::-1]
+        tp_cum = np.cumsum(np.array(all_tp)[idx])
+        fp_cum = np.cumsum(np.array(all_fp)[idx])
         precision = tp_cum / (tp_cum + fp_cum + 1e-10)
         recall = tp_cum / (n_gt + 1e-10)
 
+        precision = np.concatenate(([1.0], precision, [0.0]))
+        recall = np.concatenate(([0.0], recall, [1.0]))
+
+        for i in range(len(precision) - 2, -1, -1):
+            precision[i] = max(precision[i], precision[i + 1])
+
         ap = 0.0
-        for t in np.linspace(0, 1, 11):
-            p = precision[recall >= t]
-            ap += np.max(p) if len(p) > 0 else 0.0
-        aps.append(ap / 11)
+        for r in np.linspace(0, 1, 101):
+            p = precision[recall >= r]
+            ap += (np.max(p) if len(p) > 0 else 0.0)
+        aps.append(ap / 101)
 
     return float(aps[0]) if aps else 0.0, float(np.mean(aps)) if aps else 0.0
 
@@ -379,7 +475,7 @@ def evaluate_model(model_info: dict, dataset: list, model_type: str) -> dict:
     model_path = MODELS_DIR / fmt / quant / filename
 
     print(f"\n{'='*60}")
-    print(f"Evaluiram: {filename} [{model_type}] arch={arch}")
+    print(f"Evaluiram: {filename} [{model_type}] ft={is_finetuned(filename)}")
     print(f"{'='*60}")
 
     ram_before = get_ram_mb()
@@ -405,14 +501,17 @@ def evaluate_model(model_info: dict, dataset: list, model_type: str) -> dict:
     ram_model_mb = ram_after_load - ram_before
 
     # Warmup
-    print(f"Warmup ({NUM_WARMUP} iteracija)...")
     dummy_arr = np.random.rand(IMAGE_SIZE, IMAGE_SIZE, 3).astype(np.float32)
+    dummy_scale, dummy_pad_x, dummy_pad_y = 1.0, 0, 0
+    print(f"Warmup ({NUM_WARMUP} iteracija)...")
     for _ in range(NUM_WARMUP):
         if fmt == "tflite":
             run_tflite_inference(interpreter, input_details, output_details,
-                                dummy_arr, IMAGE_SIZE, IMAGE_SIZE, arch)
+                                dummy_arr, IMAGE_SIZE, IMAGE_SIZE,
+                                dummy_scale, dummy_pad_x, dummy_pad_y, arch, filename)
         else:
-            run_onnx_inference(session, dummy_arr, IMAGE_SIZE, IMAGE_SIZE, arch)
+            run_onnx_inference(session, dummy_arr, IMAGE_SIZE, IMAGE_SIZE,
+                              dummy_scale, dummy_pad_x, dummy_pad_y, arch, filename)
 
     # Inference na test setu
     all_detections = []
@@ -421,16 +520,18 @@ def evaluate_model(model_info: dict, dataset: list, model_type: str) -> dict:
     temp_before = get_temperature()
 
     for item in tqdm(dataset, desc=filename):
-        img_arr, orig_w, orig_h = preprocess_image(item["image_path"])
+        img_arr, orig_w, orig_h, scale, pad_x, pad_y = preprocess_image(item["image_path"])
         gt_boxes = load_yolo_labels(item["label_path"], orig_w, orig_h)
 
         if fmt == "tflite":
             dets, ms = run_tflite_inference(
                 interpreter, input_details, output_details,
-                img_arr, orig_w, orig_h, arch
+                img_arr, orig_w, orig_h, scale, pad_x, pad_y, arch, filename
             )
         else:
-            dets, ms = run_onnx_inference(session, img_arr, orig_w, orig_h, arch)
+            dets, ms = run_onnx_inference(
+                session, img_arr, orig_w, orig_h, scale, pad_x, pad_y, arch, filename
+            )
 
         all_detections.append(dets)
         all_ground_truths.append(gt_boxes)
@@ -440,14 +541,12 @@ def evaluate_model(model_info: dict, dataset: list, model_type: str) -> dict:
     ram_peak = get_ram_mb()
     avg_ms = float(np.mean(inference_times))
 
-    # mAP
     map_50, _ = compute_map(all_detections, all_ground_truths, [0.5])
     _, map_5095 = compute_map(
         all_detections, all_ground_truths,
         np.arange(0.5, 1.0, 0.05).tolist()
     )
 
-    # Precision i Recall
     all_tp, all_fp = [], []
     n_gt_total = sum(len(gt) for gt in all_ground_truths)
     for dets, gts in zip(all_detections, all_ground_truths):
@@ -519,7 +618,6 @@ def main():
     print(f"Test set: {TEST_IMAGES}")
     print(f"RAM ukupno: {psutil.virtual_memory().total / 1024 / 1024:.0f} MB")
 
-    # Provjere
     if not TEST_IMAGES.exists():
         print(f"❌ Test images folder ne postoji: {TEST_IMAGES}")
         return
@@ -556,7 +654,7 @@ def main():
 
     print(f"\n✅ Evaluiram {len(available_models)} modela:")
     for m in available_models:
-        print(f"   - {m['filename']} (arch={m.get('arch','yolov8')})")
+        print(f"   - {m['filename']} (ft={is_finetuned(m['filename'])})")
 
     output_file = Path(args.output) if args.output else \
         RESULTS_DIR / "benchmark_results.json"
@@ -584,10 +682,10 @@ def main():
 
     print(f"\n✅ Gotovo! Evaluirano: {len(new_results)} modela")
     print(f"\n{'='*80}")
-    print(f"{'Model':<35} {'Type':>10} {'mAP@0.5':>8} {'FPS':>7} {'RAM':>8}")
+    print(f"{'Model':<40} {'Type':>10} {'mAP@0.5':>8} {'FPS':>7} {'RAM':>8}")
     print(f"{'='*80}")
     for r in new_results:
-        print(f"{r['model']:<35} {r['type']:>10} "
+        print(f"{r['model']:<40} {r['type']:>10} "
               f"{r['mAP_0.5']:>8.4f} {r['avg_fps']:>7.1f} "
               f"{r['ram_model_mb']:>7.1f}MB")
 
