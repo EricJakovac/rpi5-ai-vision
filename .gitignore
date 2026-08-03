@@ -37,6 +37,7 @@ ai/detection/training/
 # Webapp
 webapp/backend/unknown_clusters.json    
 webapp/backend/cloudflared.deb
+webapp/backend/unknown_crops/
 
 # Razno
 *.csv
