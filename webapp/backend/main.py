@@ -334,3 +334,30 @@ async def dismiss_cluster(cluster_id: int):
         crop_path.unlink()
 
     return {"success": True, "message": f"Klaster {cluster_id} obrisan"}
+
+@app.delete("/persons/{name}")
+async def delete_person(name: str):
+    """Obriši osobu iz baze lica."""
+    db_path = (
+        Path(__file__).parent.parent.parent
+        / "ai" / "recognition" / "face_database.json"
+    )
+
+    if not db_path.exists():
+        return {"success": False, "message": "Baza ne postoji"}
+
+    with open(db_path) as f:
+        db = json.load(f)
+
+    if name not in db.get("persons", {}):
+        return {"success": False, "message": f"{name} nije pronađen"}
+
+    del db["persons"][name]
+
+    with open(db_path, "w") as f:
+        json.dump(db, f, indent=2)
+
+    # Reload u pipeline-u
+    pipeline._load_face_db()
+
+    return {"success": True, "message": f"{name} obrisan iz baze"}

@@ -134,18 +134,17 @@ class UnknownPersonClustering:
                 self._save_crop(crop, None)
 
     def _save_crop(self, crop: np.ndarray, cluster_id: int | None):
-        """Spremi crop slike za klaster."""
         try:
             if crop is None or crop.size == 0:
                 return
-
             if cluster_id is not None:
-                # Uvijek overwrite – čuvamo najnoviji crop klastera
+                crop_path = CROPS_DIR / f"cluster_{cluster_id}.jpg"
+                # Spremi samo ako ne postoji već
+                if crop_path.exists():
+                    return
                 filename = f"cluster_{cluster_id}.jpg"
             else:
-                # Privremeni crop za outliere
                 filename = f"unknown_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.jpg"
-
             crop_path = CROPS_DIR / filename
             cv2.imwrite(str(crop_path), crop)
         except Exception as e:

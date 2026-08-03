@@ -3,14 +3,32 @@ import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.234:8000'
 
-export default function KnownPersons() {
+export default function KnownPersons({ refreshKey }) {
   const [persons, setPersons] = useState([])
+  const [deleting, setDeleting] = useState({})
 
-  useEffect(() => {
+  const fetchPersons = () => {
     axios.get(`${API_URL}/persons`)
       .then(res => setPersons(res.data.persons))
       .catch(() => {})
-  }, [])
+  }
+
+  useEffect(() => {
+    fetchPersons()
+  }, [refreshKey])
+
+  const handleDelete = async (name) => {
+    if (!window.confirm(`Obrisati ${name} iz baze?`)) return
+    setDeleting(prev => ({ ...prev, [name]: true }))
+    try {
+      await axios.delete(`${API_URL}/persons/${encodeURIComponent(name)}`)
+      setPersons(prev => prev.filter(p => p.name !== name))
+    } catch (err) {
+      console.error('Greška pri brisanju:', err)
+    } finally {
+      setDeleting(prev => ({ ...prev, [name]: false }))
+    }
+  }
 
   const formatDate = (iso) => {
     if (!iso) return ''
@@ -34,6 +52,14 @@ export default function KnownPersons() {
                 {person.num_images} slika · {formatDate(person.registered)}
               </span>
             </div>
+            <button
+              className="person-delete-btn"
+              onClick={() => handleDelete(person.name)}
+              disabled={deleting[person.name]}
+              title="Obriši osobu"
+            >
+              {deleting[person.name] ? '...' : '✕'}
+            </button>
           </div>
         ))}
       </div>

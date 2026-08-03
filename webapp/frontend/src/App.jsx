@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useWebSocket } from './hooks/useWebSocket'
 import VideoStream from './components/VideoStream'
 import MetricsDashboard from './components/MetricsDashboard'
@@ -14,6 +14,7 @@ import './Animations.css'
 export default function App() {
   const { metrics, detections, connected, connecting } = useWebSocket()
   const [activeModel, setActiveModel] = useState(null)
+  const [personsRefreshKey, setPersonsRefreshKey] = useState(0)
 
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('theme')
@@ -27,6 +28,11 @@ export default function App() {
   }, [theme])
 
   const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark')
+
+  // Callback koji poziva KnownPersons da refresha listu
+  const handlePersonAdded = useCallback(() => {
+    setPersonsRefreshKey(k => k + 1)
+  }, [])
 
   return (
     <div className="app">
@@ -71,10 +77,10 @@ export default function App() {
             <MetricsDashboard metrics={metrics} />
           </div>
           <div className="card">
-            <KnownPersons />
+            <KnownPersons refreshKey={personsRefreshKey} />
           </div>
           <div className="card">
-            <UnknownClusters />
+            <UnknownClusters onPersonAdded={handlePersonAdded} />
           </div>
         </div>
       </main>

@@ -3,24 +3,47 @@ import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.234:8000'
 
-export default function UnknownClusters() {
+export default function UnknownClusters({ onPersonAdded }) {
   const [clusters, setClusters] = useState([])
   const [stats, setStats] = useState(null)
   const [resetting, setResetting] = useState(false)
+  const [crops, setCrops] = useState({})
+  const [addingName, setAddingName] = useState({})
+  const [nameInputs, setNameInputs] = useState({})
+  const [dismissing, setDismissing] = useState({})
+
+  const fetchClusters = () => {
+    axios.get(`${API_URL}/clusters`)
+      .then(res => {
+        setClusters(res.data.clusters)
+        setStats(res.data.stats)
+        res.data.clusters.forEach(c => {
+          if (crops[c.cluster_id] === undefined) {
+            fetchCrop(c.cluster_id)
+          }
+        })
+      })
+      .catch(() => {})
+  }
 
   useEffect(() => {
-    const fetch = () => {
-      axios.get(`${API_URL}/clusters`)
-        .then(res => {
-          setClusters(res.data.clusters)
-          setStats(res.data.stats)
-        })
-        .catch(() => {})
-    }
-    fetch()
-    const interval = setInterval(fetch, 5000)
+    fetchClusters()
+    const interval = setInterval(fetchClusters, 5000)
     return () => clearInterval(interval)
   }, [])
+
+  const fetchCrop = async (clusterId) => {
+    try {
+      const res = await axios.get(`${API_URL}/clusters/${clusterId}/crop`)
+      if (res.data.success && res.data.crop) {
+        setCrops(prev => ({ ...prev, [clusterId]: res.data.crop }))
+      } else {
+        setCrops(prev => ({ ...prev, [clusterId]: null }))
+      }
+    } catch {
+      setCrops(prev => ({ ...prev, [clusterId]: null }))
+    }
+  }
 
   const handleReset = async () => {
     if (!window.confirm('Resetirati sve klastere nepoznatih osoba?')) return
@@ -29,6 +52,7 @@ export default function UnknownClusters() {
       await axios.post(`${API_URL}/clusters/reset`)
       setClusters([])
       setStats(null)
+      setCrops({})
     } catch (err) {
       console.error('Reset greška:', err)
     } finally {
@@ -36,13 +60,47 @@ export default function UnknownClusters() {
     }
   }
 
+  const handleAddToDatabase = async (clusterId) => {
+    const name = nameInputs[clusterId]?.trim()
+    if (!name) return
+    setAddingName(prev => ({ ...prev, [clusterId]: true }))
+    try {
+      const res = await axios.post(
+        `${API_URL}/clusters/${clusterId}/add-to-database`,
+        { name }
+      )
+      if (res.data.success) {
+        setClusters(prev => prev.filter(c => c.cluster_id !== clusterId))
+        setCrops(prev => { const n = { ...prev }; delete n[clusterId]; return n })
+        setNameInputs(prev => { const n = { ...prev }; delete n[clusterId]; return n })
+        // Obavijesti parent da je dodana nova osoba
+        if (onPersonAdded) onPersonAdded()
+      }
+    } catch (err) {
+      console.error('Greška pri dodavanju:', err)
+    } finally {
+      setAddingName(prev => ({ ...prev, [clusterId]: false }))
+    }
+  }
+
+  const handleDismiss = async (clusterId) => {
+    setDismissing(prev => ({ ...prev, [clusterId]: true }))
+    try {
+      await axios.post(`${API_URL}/clusters/${clusterId}/dismiss`)
+      setClusters(prev => prev.filter(c => c.cluster_id !== clusterId))
+      setCrops(prev => { const n = { ...prev }; delete n[clusterId]; return n })
+    } catch (err) {
+      console.error('Greška pri odbijanju:', err)
+    } finally {
+      setDismissing(prev => ({ ...prev, [clusterId]: false }))
+    }
+  }
+
   const formatTime = (iso) => {
     if (!iso) return ''
     return new Date(iso).toLocaleString('hr-HR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: '2-digit', month: '2-digit',
+      hour: '2-digit', minute: '2-digit'
     })
   }
 
@@ -51,11 +109,7 @@ export default function UnknownClusters() {
       <div className="clusters-header">
         <p className="section-title">Nepoznate osobe</p>
         {stats && stats.total_embeddings > 0 && (
-          <button
-            className="reset-btn"
-            onClick={handleReset}
-            disabled={resetting}
-          >
+          <button className="reset-btn" onClick={handleReset} disabled={resetting}>
             {resetting ? '...' : '↺'}
           </button>
         )}
@@ -75,21 +129,58 @@ export default function UnknownClusters() {
         <div className="clusters-list">
           {clusters.map((cluster, i) => (
             <div key={cluster.cluster_id} className="cluster-item">
-              <div className="cluster-avatar">
-                {i + 1}
+
+              {/* Avatar / Crop u malom krugu */}
+              <div className="cluster-avatar-wrap">
+                {crops[cluster.cluster_id] ? (
+                  <img
+                    src={`data:image/jpeg;base64,${crops[cluster.cluster_id]}`}
+                    alt={`Osoba #${i + 1}`}
+                    className="cluster-avatar-img"
+                  />
+                ) : (
+                  <div className="cluster-avatar">{i + 1}</div>
+                )}
               </div>
+
+              {/* Info + akcije */}
               <div className="cluster-info">
-                <span className="cluster-name">
-                  Nepoznata osoba #{i + 1}
-                </span>
-                <span className="cluster-meta">
-                  Viđena {cluster.count}×
-                </span>
+                <span className="cluster-name">Nepoznata osoba #{i + 1}</span>
+                <span className="cluster-meta">Viđena {cluster.count}×</span>
                 <span className="cluster-time">
                   {formatTime(cluster.first_seen)} – {formatTime(cluster.last_seen)}
                 </span>
+
+                <div className="cluster-actions">
+                  <input
+                    type="text"
+                    placeholder="Unesite ime..."
+                    value={nameInputs[cluster.cluster_id] || ''}
+                    onChange={e => setNameInputs(prev => ({
+                      ...prev, [cluster.cluster_id]: e.target.value
+                    }))}
+                    onKeyDown={e => e.key === 'Enter' && handleAddToDatabase(cluster.cluster_id)}
+                    className="cluster-name-input"
+                  />
+                  <button
+                    className="cluster-add-btn"
+                    onClick={() => handleAddToDatabase(cluster.cluster_id)}
+                    disabled={addingName[cluster.cluster_id] || !nameInputs[cluster.cluster_id]?.trim()}
+                    title="Potvrdi"
+                  >
+                    {addingName[cluster.cluster_id] ? '...' : '✓'}
+                  </button>
+                  <button
+                    className="cluster-dismiss-btn"
+                    onClick={() => handleDismiss(cluster.cluster_id)}
+                    disabled={dismissing[cluster.cluster_id]}
+                    title="Odbij"
+                  >
+                    {dismissing[cluster.cluster_id] ? '...' : '✕'}
+                  </button>
+                </div>
               </div>
-              <span className="cluster-badge">{cluster.count}×</span>
+
             </div>
           ))}
         </div>
