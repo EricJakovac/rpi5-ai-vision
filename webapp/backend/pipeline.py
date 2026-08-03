@@ -261,42 +261,53 @@ class InferencePipeline:
         detections = []
         if not person_detections:
             return detections
-
         faces = []
         if self._face_app:
             try:
                 faces = self._face_app.get(frame)
             except Exception:
                 pass
-
         for bbox, conf in person_detections:
             name, face_score, cluster_id, face_obj = self._match_face(bbox, faces)
-
             if name:
                 status = "known"
                 cluster_label = None
             elif face_score >= 0.0:
                 status = "unknown"
-                # Pokušaj identificirati klaster
                 if face_obj is not None:
                     cluster_id, cluster_score = self._clustering.identify_unknown(
                         face_obj.embedding
                     )
-                    # Dodaj u clustering buffer ako prođe filtere
                     if self._clustering.should_add(
                         face_obj.embedding,
                         face_score,
                         float(face_obj.det_score),
                         self._persons,
                     ):
+                        # ─── Izreži crop osobe iz framea ─────────────────
+                        cx, cy, w, h = bbox
+                        x1 = int((cx - w / 2) * CAM_WIDTH)
+                        y1 = int((cy - h / 2) * CAM_HEIGHT)
+                        x2 = int((cx + w / 2) * CAM_WIDTH)
+                        y2 = int((cy + h / 2) * CAM_HEIGHT)
+                        x1 = max(0, x1)
+                        y1 = max(0, y1)
+                        x2 = min(frame.shape[1], x2)
+                        y2 = min(frame.shape[0], y2)
+                        person_crop = (
+                            frame[y1:y2, x1:x2]
+                            if x2 > x1 and y2 > y1
+                            else None
+                        )
                         self._clustering.add_unknown(
-                            face_obj.embedding, float(face_obj.det_score)
+                            face_obj.embedding,
+                            float(face_obj.det_score),
+                            crop=person_crop,
                         )
                 cluster_label = cluster_id
             else:
                 status = "no_face"
                 cluster_label = None
-
             detections.append(
                 Detection(
                     bbox=bbox.tolist(),
@@ -307,7 +318,6 @@ class InferencePipeline:
                     cluster_id=cluster_label,
                 )
             )
-
         return detections
 
     def _match_face(self, person_bbox, faces) -> tuple:
@@ -419,3 +429,7 @@ class InferencePipeline:
     def reset_clustering(self):
         """Resetiraj clustering podatke."""
         self._clustering.reset()
+
+    def get_cluster_crop(self, cluster_id: int) -> str | None:
+        """Vrati base64 crop slike za klaster."""
+        return self._clustering.get_cluster_crop_b64(cluster_id)

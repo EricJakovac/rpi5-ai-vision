@@ -46,6 +46,15 @@ cloudflared tunnel --url http://localhost:8000 2>&1 | while IFS= read -r line; d
             echo "║  VITE_STREAM_URL=$URL/stream"
             echo "╚══════════════════════════════════════════════════════╝"
             echo ""
+
+            # ─── Automatski ažuriraj .env.local na RPi-u ─────────────
+            ENV_FILE=~/Desktop/rpi5-ai-vision/webapp/frontend/.env.local
+            cat > "$ENV_FILE" << EOF
+VITE_API_URL=$URL
+VITE_WS_URL=${URL/https/wss}/ws
+VITE_STREAM_URL=$URL/stream
+EOF
+            echo "✅ .env.local ažuriran: $ENV_FILE"
         fi
     fi
 done

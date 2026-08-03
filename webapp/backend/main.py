@@ -11,7 +11,7 @@ from pathlib import Path
 
 import numpy as np
 import RPi.GPIO as GPIO
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from PIL import Image as PILImage, ImageDraw, ImageFont
@@ -271,3 +271,66 @@ async def reset_clusters():
     """Resetiraj clustering podatke."""
     pipeline.reset_clustering()
     return {"success": True, "message": "Clustering resetiran"}
+
+@app.get("/clusters/{cluster_id}/crop")
+async def get_cluster_crop(cluster_id: int):
+    """Vrati crop slike nepoznate osobe kao base64."""
+    crop_b64 = pipeline.get_cluster_crop(cluster_id)
+    if crop_b64 is None:
+        return {"success": False, "message": "Crop ne postoji"}
+    return {"success": True, "crop": crop_b64}
+
+
+@app.post("/clusters/{cluster_id}/add-to-database")
+async def add_cluster_to_database(cluster_id: int, request: dict):
+    """Dodaj nepoznatu osobu u bazu poznatih osoba."""
+    name = request.get("name", "").strip()
+    if not name:
+        return {"success": False, "message": "Ime je obavezno"}
+
+    # Dohvati centroid klastera kao embedding
+    clusters = pipeline.get_clusters()
+    cluster = next((c for c in clusters if c["cluster_id"] == cluster_id), None)
+    if cluster is None:
+        return {"success": False, "message": "Klaster ne postoji"}
+
+    # Dodaj u face_database.json
+    db_path = (
+        Path(__file__).parent.parent.parent
+        / "ai" / "recognition" / "face_database.json"
+    )
+
+    if db_path.exists():
+        with open(db_path) as f:
+            db = json.load(f)
+    else:
+        db = {"persons": {}}
+
+    db["persons"][name] = {
+        "embedding": cluster["centroid"],
+        "num_images": cluster["count"],
+        "registered": datetime.now().isoformat(),
+    }
+
+    with open(db_path, "w") as f:
+        json.dump(db, f, indent=2)
+
+    # Reload face database u pipeline-u
+    pipeline._load_face_db()
+
+    return {"success": True, "message": f"{name} dodan u bazu"}
+
+
+@app.post("/clusters/{cluster_id}/dismiss")
+async def dismiss_cluster(cluster_id: int):
+    """Odbij nepoznatu osobu – obriši klaster."""
+    pipeline._clustering._clusters.pop(cluster_id, None)
+    pipeline._clustering._save_clusters()
+
+    # Obriši crop
+    from clustering import CROPS_DIR
+    crop_path = CROPS_DIR / f"cluster_{cluster_id}.jpg"
+    if crop_path.exists():
+        crop_path.unlink()
+
+    return {"success": True, "message": f"Klaster {cluster_id} obrisan"}

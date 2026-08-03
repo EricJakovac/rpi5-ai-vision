@@ -11,8 +11,14 @@ Filtriranje na ulazu:
 DBSCAN parametri:
 - eps = 0.4        → udaljenost između točaka
 - min_samples = 2  → minimalno 2 slične pojave = klaster
+
+Throttling:
+- THROTTLE_SECONDS = 3.0  → dodaj embedding max jednom svakih 3s
+                             za istu osobu (isti klaster)
 """
 
+import base64
+import cv2
 import numpy as np
 import json
 from pathlib import Path
@@ -20,7 +26,11 @@ from datetime import datetime
 from sklearn.cluster import DBSCAN
 
 CLUSTERS_PATH = Path(__file__).parent / "unknown_clusters.json"
+CROPS_DIR = Path(__file__).parent / "unknown_crops"
+CROPS_DIR.mkdir(exist_ok=True)
+
 KNOWN_EXCLUSION_THRESHOLD = 0.3
+THROTTLE_SECONDS = 3.0
 
 
 class UnknownPersonClustering:
@@ -36,6 +46,9 @@ class UnknownPersonClustering:
         self._clusters = {}
         self._labels = []
 
+        self._last_added: dict = {}
+        self._last_unknown_add: datetime | None = None
+
         self._load_clusters()
 
     def should_add(
@@ -45,15 +58,6 @@ class UnknownPersonClustering:
         det_score: float,
         known_persons: dict,
     ) -> bool:
-        """
-        Provjeri treba li dodati ovaj embedding u clustering.
-
-        Uvjeti:
-        1. Lice postoji (face_score >= 0.0)
-        2. InsightFace je siguran (det_score > 0.65)
-        3. Nije poznata osoba u lošem kutu
-           (best_known_score < KNOWN_EXCLUSION_THRESHOLD)
-        """
         if face_score < 0.0:
             return False
 
@@ -62,10 +66,7 @@ class UnknownPersonClustering:
 
         if known_persons:
             norm = np.linalg.norm(embedding)
-            if norm > 0:
-                emb_norm = embedding / norm
-            else:
-                emb_norm = embedding
+            emb_norm = embedding / norm if norm > 0 else embedding
 
             best_known = max(
                 float(
@@ -78,20 +79,90 @@ class UnknownPersonClustering:
             if best_known >= KNOWN_EXCLUSION_THRESHOLD:
                 return False
 
+        norm = np.linalg.norm(embedding)
+        emb_norm = embedding / norm if norm > 0 else embedding
+
+        cluster_id, _ = self.identify_unknown(emb_norm)
+        now = datetime.now()
+
+        if cluster_id is not None:
+            last = self._last_added.get(cluster_id)
+            if last is not None:
+                if (now - last).total_seconds() < THROTTLE_SECONDS:
+                    return False
+        else:
+            if self._last_unknown_add is not None:
+                if (now - self._last_unknown_add).total_seconds() < THROTTLE_SECONDS:
+                    return False
+
         return True
 
-    def add_unknown(self, embedding: np.ndarray, det_score: float = 1.0):
+    def add_unknown(
+        self,
+        embedding: np.ndarray,
+        det_score: float = 1.0,
+        crop: np.ndarray | None = None,
+    ):
         """Dodaj embedding nepoznate osobe u buffer i pokreni clustering."""
         norm = np.linalg.norm(embedding)
         if norm > 0:
             embedding = embedding / norm
 
+        now = datetime.now()
+        cluster_id, _ = self.identify_unknown(embedding)
+
         self._embeddings.append(embedding)
-        self._timestamps.append(datetime.now().isoformat())
+        self._timestamps.append(now.isoformat())
         self._det_scores.append(float(det_score))
+
+        if cluster_id is not None:
+            self._last_added[cluster_id] = now
+        else:
+            self._last_unknown_add = now
 
         if len(self._embeddings) >= self.min_samples:
             self._run_clustering()
+            new_id, _ = self.identify_unknown(embedding)
+            if new_id is not None:
+                self._last_added[new_id] = now
+                # Spremi crop za ovaj klaster
+                if crop is not None:
+                    self._save_crop(crop, new_id)
+        else:
+            # Još nema klastera – spremi kao privremeni crop
+            if crop is not None:
+                self._save_crop(crop, None)
+
+    def _save_crop(self, crop: np.ndarray, cluster_id: int | None):
+        """Spremi crop slike za klaster."""
+        try:
+            if crop is None or crop.size == 0:
+                return
+
+            if cluster_id is not None:
+                # Uvijek overwrite – čuvamo najnoviji crop klastera
+                filename = f"cluster_{cluster_id}.jpg"
+            else:
+                # Privremeni crop za outliere
+                filename = f"unknown_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.jpg"
+
+            crop_path = CROPS_DIR / filename
+            cv2.imwrite(str(crop_path), crop)
+        except Exception as e:
+            print(f"⚠️ Greška pri spremanju cropa: {e}")
+
+    def get_cluster_crop_b64(self, cluster_id: int) -> str | None:
+        """Vrati crop slike klastera kao base64 string za API."""
+        crop_path = CROPS_DIR / f"cluster_{cluster_id}.jpg"
+
+        if not crop_path.exists():
+            return None
+
+        try:
+            with open(crop_path, "rb") as f:
+                return base64.b64encode(f.read()).decode("utf-8")
+        except Exception:
+            return None
 
     def _run_clustering(self):
         """Pokreni DBSCAN na svim prikupljenim embeddingsima."""
@@ -113,18 +184,18 @@ class UnknownPersonClustering:
                 continue
 
             indices = [i for i, l in enumerate(self._labels) if l == label]
-
             cluster_embeddings = X[indices]
             centroid = np.mean(cluster_embeddings, axis=0)
             centroid = centroid / np.linalg.norm(centroid)
-
             existing = self._clusters.get(int(label), {})
 
             new_clusters[int(label)] = {
                 "cluster_id": int(label),
                 "count": int(len(indices)),
                 "centroid": centroid.tolist(),
-                "first_seen": existing.get("first_seen", self._timestamps[indices[0]]),
+                "first_seen": existing.get(
+                    "first_seen", self._timestamps[indices[0]]
+                ),
                 "last_seen": self._timestamps[indices[-1]],
             }
 
@@ -134,7 +205,6 @@ class UnknownPersonClustering:
     def identify_unknown(self, embedding: np.ndarray) -> tuple:
         """
         Provjeri pripada li novi embedding postojećem klasteru.
-
         Vraća:
           (cluster_id, similarity) → poznat klaster
           (None, score)            → novi/outlier
@@ -162,10 +232,11 @@ class UnknownPersonClustering:
 
     def get_clusters(self) -> list:
         """Vrati listu svih klastera sortiranu po broju pojavljivanja."""
-        return sorted(self._clusters.values(), key=lambda x: x["count"], reverse=True)
+        return sorted(
+            self._clusters.values(), key=lambda x: x["count"], reverse=True
+        )
 
     def get_stats(self) -> dict:
-        """Statistike clusteringa."""
         n_outliers = int(sum(1 for l in self._labels if l == -1))
         return {
             "total_embeddings": int(len(self._embeddings)),
@@ -183,6 +254,11 @@ class UnknownPersonClustering:
         self._det_scores = []
         self._clusters = {}
         self._labels = []
+        self._last_added = {}
+        self._last_unknown_add = None
+        # Obriši cropove
+        for f in CROPS_DIR.glob("*.jpg"):
+            f.unlink()
         self._save_clusters()
         print("✅ Clustering resetiran")
 
@@ -199,6 +275,7 @@ class UnknownPersonClustering:
         if CLUSTERS_PATH.exists():
             with open(CLUSTERS_PATH) as f:
                 data = json.load(f)
-            # Konvertiraj ključeve natrag u int
-            self._clusters = {int(k): v for k, v in data.get("clusters", {}).items()}
+            self._clusters = {
+                int(k): v for k, v in data.get("clusters", {}).items()
+            }
             print(f"✅ Clustering: učitano {len(self._clusters)} klastera")
