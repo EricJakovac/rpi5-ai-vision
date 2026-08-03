@@ -46,7 +46,7 @@ export default function UnknownClusters({ onPersonAdded }) {
   }
 
   const handleReset = async () => {
-    if (!window.confirm('Resetirati sve klastere nepoznatih osoba?')) return
+    if (!window.confirm('Jeste li sigurni da želite resetirati sve klastere nepoznatih osoba?')) return
     setResetting(true)
     try {
       await axios.post(`${API_URL}/clusters/reset`)
@@ -61,27 +61,29 @@ export default function UnknownClusters({ onPersonAdded }) {
   }
 
   const handleAddToDatabase = async (clusterId) => {
-    const name = nameInputs[clusterId]?.trim()
-    if (!name) return
-    setAddingName(prev => ({ ...prev, [clusterId]: true }))
-    try {
-      const res = await axios.post(
-        `${API_URL}/clusters/${clusterId}/add-to-database`,
-        { name }
-      )
-      if (res.data.success) {
-        setClusters(prev => prev.filter(c => c.cluster_id !== clusterId))
-        setCrops(prev => { const n = { ...prev }; delete n[clusterId]; return n })
-        setNameInputs(prev => { const n = { ...prev }; delete n[clusterId]; return n })
-        // Obavijesti parent da je dodana nova osoba
-        if (onPersonAdded) onPersonAdded()
-      }
-    } catch (err) {
-      console.error('Greška pri dodavanju:', err)
-    } finally {
-      setAddingName(prev => ({ ...prev, [clusterId]: false }))
+  const name = nameInputs[clusterId]?.trim()
+  if (!name) return
+  setAddingName(prev => ({ ...prev, [clusterId]: true }))
+  try {
+    const res = await axios.post(
+      `${API_URL}/clusters/${clusterId}/add-to-database`,
+      { name }
+    )
+    if (res.data.success) {
+      // Obriši klaster nakon dodavanja
+      await axios.post(`${API_URL}/clusters/${clusterId}/dismiss`)
+      
+      setClusters(prev => prev.filter(c => c.cluster_id !== clusterId))
+      setCrops(prev => { const n = { ...prev }; delete n[clusterId]; return n })
+      setNameInputs(prev => { const n = { ...prev }; delete n[clusterId]; return n })
+      if (onPersonAdded) onPersonAdded()
     }
+  } catch (err) {
+    console.error('Greška pri dodavanju:', err)
+  } finally {
+    setAddingName(prev => ({ ...prev, [clusterId]: false }))
   }
+}
 
   const handleDismiss = async (clusterId) => {
     setDismissing(prev => ({ ...prev, [clusterId]: true }))

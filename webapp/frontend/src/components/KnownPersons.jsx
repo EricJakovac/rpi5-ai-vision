@@ -18,7 +18,7 @@ export default function KnownPersons({ refreshKey }) {
   }, [refreshKey])
 
   const handleDelete = async (name) => {
-    if (!window.confirm(`Obrisati ${name} iz baze?`)) return
+    if (!window.confirm(`Jeste li sigurni da želite obrisati ${name} iz baze?`)) return
     setDeleting(prev => ({ ...prev, [name]: true }))
     try {
       await axios.delete(`${API_URL}/persons/${encodeURIComponent(name)}`)

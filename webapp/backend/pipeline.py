@@ -104,12 +104,16 @@ class InferencePipeline:
         self._start_time = time.time()
 
     def _load_face_db(self):
+        # Očisti staru bazu PRIJE učitavanja
+        self._persons = {}
         if DB_PATH.exists():
             with open(DB_PATH, "r") as f:
                 db = json.load(f)
             for name, data in db["persons"].items():
                 self._persons[name] = np.array(data["embedding"])
             print(f"✅ Baza lica: {len(self._persons)} osoba")
+        else:
+            print("⚠️ Baza lica prazna")
 
     def _init_insightface(self):
         try:
