@@ -9,6 +9,7 @@ import time
 import numpy as np
 import psutil
 import json
+import cv2, base64
 from pathlib import Path
 from PIL import Image as PILImage
 from datetime import datetime
@@ -17,7 +18,6 @@ from camera import CameraManager
 from models import ModelManager
 from schemas import Detection, Metrics
 
-# Dodaj putanju do ai/recognition
 sys.path.append(str(Path(__file__).parent.parent.parent / "ai" / "recognition"))
 from clustering import UnknownPersonClustering
 
@@ -104,6 +104,7 @@ class InferencePipeline:
 
         self._start_time = time.time()
         self._embedding_counters = {}
+        self._known_crops = {}
 
     def _load_face_db(self):
         # Očisti staru bazu PRIJE učitavanja
@@ -303,6 +304,18 @@ class InferencePipeline:
             if name:
                 status = "known"
                 cluster_label = None
+                # Spremi crop u memoriju ako ga još nema ili je prošlo 30s
+                if face_score > 0.75 and face_obj is not None:
+                    if name not in self._known_crops:
+                        cx, cy, w, h = bbox
+                        x1 = max(0, int((cx - w / 2) * CAM_WIDTH))
+                        y1 = max(0, int((cy - h / 2) * CAM_HEIGHT))
+                        x2 = min(frame.shape[1], int((cx + w / 2) * CAM_WIDTH))
+                        y2 = min(frame.shape[0], int((cy + h / 2) * CAM_HEIGHT))
+                        if x2 > x1 and y2 > y1:
+                            crop = frame[y1:y2, x1:x2]
+                            _, buf = cv2.imencode('.jpg', crop)
+                            self._known_crops[name] = base64.b64encode(buf).decode('utf-8')
             elif face_score >= 0.0:
                 status = "unknown"
                 if face_obj is not None:

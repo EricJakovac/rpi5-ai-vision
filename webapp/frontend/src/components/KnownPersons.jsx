@@ -15,7 +15,16 @@ export default function KnownPersons({ refreshKey }) {
 
   useEffect(() => {
     fetchPersons()
+    const interval = setInterval(fetchPersons, 10000) 
+    return () => clearInterval(interval)
   }, [refreshKey])
+
+  useEffect(() => {
+    const cropInterval = setInterval(() => {
+      persons.forEach(p => fetchCrop(p.name))
+    }, 5000)
+    return () => clearInterval(cropInterval)
+  }, [persons])
 
   const handleDelete = async (name) => {
     if (!window.confirm(`Jeste li sigurni da želite obrisati ${name} iz baze?`)) return

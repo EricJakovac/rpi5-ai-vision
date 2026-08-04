@@ -361,3 +361,10 @@ async def delete_person(name: str):
     pipeline._load_face_db()
 
     return {"success": True, "message": f"{name} obrisan iz baze"}
+
+@app.get("/persons/{name}/crop")
+async def get_person_crop(name: str):
+    crop = pipeline.get_known_crop(name)
+    if not crop:
+        return {"success": False}
+    return {"success": True, "crop": crop}

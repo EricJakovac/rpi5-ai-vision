@@ -451,8 +451,8 @@ body {
 }
 
 .person-avatar {
-  width: 36px;
-  height: 36px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: var(--accent-dim);
   color: var(--accent);

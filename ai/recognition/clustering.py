@@ -277,4 +277,10 @@ class UnknownPersonClustering:
             self._clusters = {
                 int(k): v for k, v in data.get("clusters", {}).items()
             }
+            # Učitaj centroide kao embeddings da se ne izgube
+            for cluster_id, info in self._clusters.items():
+                centroid = np.array(info["centroid"])
+                self._embeddings.append(centroid)
+                self._timestamps.append(info.get("last_seen", datetime.now().isoformat()))
+                self._det_scores.append(1.0)
             print(f"✅ Clustering: učitano {len(self._clusters)} klastera")
