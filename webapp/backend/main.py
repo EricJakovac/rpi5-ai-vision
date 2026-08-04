@@ -65,7 +65,7 @@ async def startup():
     print("✅ GPIO inicijaliziran")
 
     camera.start()
-    model_manager.load_model("yolov8n_int8.tflite")
+    model_manager.load_model("yolov8n_v2_ft_int8.tflite")
     pipeline.start()
 
     asyncio.create_task(pir_monitor())

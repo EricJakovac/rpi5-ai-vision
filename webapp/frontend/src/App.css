@@ -616,6 +616,7 @@ body {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-width: 0;
   gap: 0.1rem;
 }
 
@@ -635,21 +636,11 @@ body {
   color: var(--text-dim);
 }
 
-.cluster-badge {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--accent-red);
-  background: rgba(248,113,113,0.1);
-  padding: 0.2rem 0.5rem;
-  border-radius: 10px;
-  flex-shrink: 0;
-}
-
 /* ─── Cluster avatar s cropom ──────────────────── */
 .cluster-avatar-wrap {
   flex-shrink: 0;
-  width: 80px;
-  height: 80px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   overflow: hidden;
   border: 2px solid var(--accent-red);
@@ -665,58 +656,87 @@ body {
 /* ─── Cluster akcije ────────────────────────────── */
 .cluster-actions {
   display: flex;
+  flex-direction: row;
   gap: 0.4rem;
-  margin-top: 0.4rem;
-  align-items: center;
+  margin-top: 0.5rem;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.cluster-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  width: 110px;
 }
 
 .cluster-name-input {
-  flex: 1;
+  width: 100%;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 0.25rem 0.5rem;
+  padding: 0.3rem 0.5rem;
   color: var(--text-primary);
   font-size: 0.75rem;
   outline: none;
-  min-width: 0;
+  box-sizing: border-box;
 }
 
 .cluster-name-input:focus {
-  border-color: var(--accent-teal);
+  border-color: #00d4aa;
+}
+
+.cluster-name-input.input-error {
+  border-color: #f87171;
+}
+
+.cluster-error {
+  font-size: 0.65rem;
+  color: #f87171;
 }
 
 .cluster-add-btn {
-  background: var(--accent-teal);
+  background: #00d4aa;
   color: #000;
   border: none;
   border-radius: 6px;
-  padding: 0.25rem 0.5rem;
+  padding: 0.3rem 0.55rem;
   cursor: pointer;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cluster-add-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .cluster-dismiss-btn {
-  background: var(--accent-red);
+  background: #f87171;
   color: #fff;
   border: none;
   border-radius: 6px;
-  padding: 0.25rem 0.5rem;
+  padding: 0.3rem 0.55rem;
   cursor: pointer;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cluster-dismiss-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 

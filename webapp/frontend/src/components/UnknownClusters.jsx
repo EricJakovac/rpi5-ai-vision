@@ -11,6 +11,7 @@ export default function UnknownClusters({ onPersonAdded }) {
   const [addingName, setAddingName] = useState({})
   const [nameInputs, setNameInputs] = useState({})
   const [dismissing, setDismissing] = useState({})
+  const [errors, setErrors] = useState({})
 
   const fetchClusters = () => {
     axios.get(`${API_URL}/clusters`)
@@ -61,29 +62,31 @@ export default function UnknownClusters({ onPersonAdded }) {
   }
 
   const handleAddToDatabase = async (clusterId) => {
-  const name = nameInputs[clusterId]?.trim()
-  if (!name) return
-  setAddingName(prev => ({ ...prev, [clusterId]: true }))
-  try {
-    const res = await axios.post(
-      `${API_URL}/clusters/${clusterId}/add-to-database`,
-      { name }
-    )
-    if (res.data.success) {
-      // Obriši klaster nakon dodavanja
-      await axios.post(`${API_URL}/clusters/${clusterId}/dismiss`)
-      
-      setClusters(prev => prev.filter(c => c.cluster_id !== clusterId))
-      setCrops(prev => { const n = { ...prev }; delete n[clusterId]; return n })
-      setNameInputs(prev => { const n = { ...prev }; delete n[clusterId]; return n })
-      if (onPersonAdded) onPersonAdded()
+    const name = nameInputs[clusterId]?.trim()
+    if (!name) {
+      setErrors(prev => ({ ...prev, [clusterId]: 'Unesite ime!' }))
+      return
     }
-  } catch (err) {
-    console.error('Greška pri dodavanju:', err)
-  } finally {
-    setAddingName(prev => ({ ...prev, [clusterId]: false }))
+    setErrors(prev => ({ ...prev, [clusterId]: null }))
+    setAddingName(prev => ({ ...prev, [clusterId]: true }))
+    try {
+      const res = await axios.post(
+        `${API_URL}/clusters/${clusterId}/add-to-database`,
+        { name }
+      )
+      if (res.data.success) {
+        await axios.post(`${API_URL}/clusters/${clusterId}/dismiss`)
+        setClusters(prev => prev.filter(c => c.cluster_id !== clusterId))
+        setCrops(prev => { const n = { ...prev }; delete n[clusterId]; return n })
+        setNameInputs(prev => { const n = { ...prev }; delete n[clusterId]; return n })
+        if (onPersonAdded) onPersonAdded()
+      }
+    } catch (err) {
+      console.error('Greška pri dodavanju:', err)
+    } finally {
+      setAddingName(prev => ({ ...prev, [clusterId]: false }))
+    }
   }
-}
 
   const handleDismiss = async (clusterId) => {
     setDismissing(prev => ({ ...prev, [clusterId]: true }))
@@ -154,20 +157,28 @@ export default function UnknownClusters({ onPersonAdded }) {
                 </span>
 
                 <div className="cluster-actions">
-                  <input
-                    type="text"
-                    placeholder="Unesite ime..."
-                    value={nameInputs[cluster.cluster_id] || ''}
-                    onChange={e => setNameInputs(prev => ({
-                      ...prev, [cluster.cluster_id]: e.target.value
-                    }))}
-                    onKeyDown={e => e.key === 'Enter' && handleAddToDatabase(cluster.cluster_id)}
-                    className="cluster-name-input"
-                  />
+                  <div className="cluster-input-wrap">
+                    <input
+                      type="text"
+                      placeholder="Unesite ime nepoznate osobe..."
+                      value={nameInputs[cluster.cluster_id] || ''}
+                      onChange={e => {
+                        setNameInputs(prev => ({
+                          ...prev, [cluster.cluster_id]: e.target.value
+                        }))
+                        setErrors(prev => ({ ...prev, [cluster.cluster_id]: null }))
+                      }}
+                      onKeyDown={e => e.key === 'Enter' && handleAddToDatabase(cluster.cluster_id)}
+                      className={`cluster-name-input ${errors[cluster.cluster_id] ? 'input-error' : ''}`}
+                    />
+                    {errors[cluster.cluster_id] && (
+                      <span className="cluster-error">{errors[cluster.cluster_id]}</span>
+                    )}
+                  </div>
                   <button
                     className="cluster-add-btn"
                     onClick={() => handleAddToDatabase(cluster.cluster_id)}
-                    disabled={addingName[cluster.cluster_id] || !nameInputs[cluster.cluster_id]?.trim()}
+                    disabled={addingName[cluster.cluster_id]}
                     title="Potvrdi"
                   >
                     {addingName[cluster.cluster_id] ? '...' : '✓'}

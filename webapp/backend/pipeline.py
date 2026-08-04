@@ -98,7 +98,7 @@ class InferencePipeline:
         self._init_insightface()
 
         # DBSCAN clustering
-        self._clustering = UnknownPersonClustering(eps=0.4, min_samples=2)
+        self._clustering = UnknownPersonClustering(eps=0.4, min_samples=5)
         print("✅ DBSCAN clustering inicijaliziran")
 
         self._start_time = time.time()
@@ -370,9 +370,43 @@ class InferencePipeline:
                 best_name = name
 
         if best_score >= SIMILARITY_THRESHOLD:
+            # Auto-update embedding (running average)
+            self._update_embedding(best_name, emb)
             return best_name, best_score, None, best_face
 
         return None, best_score, None, best_face
+
+    def _update_embedding(self, name: str, new_embedding: np.ndarray):
+        """Dodaj novi embedding u running average za poznatu osobu."""
+        if name not in self._persons:
+            return
+        
+        # Učitaj trenutni broj slika
+        if DB_PATH.exists():
+            with open(DB_PATH) as f:
+                db = json.load(f)
+            
+            person_data = db["persons"].get(name, {})
+            n = person_data.get("num_images", 1)
+            
+            # Running average: novo = (staro * n + novo) / (n + 1)
+            current = self._persons[name]
+            norm_new = new_embedding / np.linalg.norm(new_embedding)
+            
+            updated = (current * n + norm_new) / (n + 1)
+            updated = updated / np.linalg.norm(updated)
+            
+            # Spremi u memoriju
+            self._persons[name] = updated
+            
+            # Spremi u JSON svake 10 novih slika
+            new_n = n + 1
+            if new_n % 10 == 0:
+                db["persons"][name]["embedding"] = updated.tolist()
+                db["persons"][name]["num_images"] = new_n
+                with open(DB_PATH, "w") as f:
+                    json.dump(db, f, indent=2)
+                print(f"✅ Auto-update embedding: {name} ({new_n} slika)")
 
     # ─── Metrike ─────────────────────────────────────────────────────────────
 

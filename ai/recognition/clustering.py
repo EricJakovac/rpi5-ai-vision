@@ -10,10 +10,10 @@ Filtriranje na ulazu:
 
 DBSCAN parametri:
 - eps = 0.4        → udaljenost između točaka
-- min_samples = 2  → minimalno 2 slične pojave = klaster
+- min_samples = 5  → minimalno 5 sličnih pojava  = klaster
 
 Throttling:
-- THROTTLE_SECONDS = 3.0  → dodaj embedding max jednom svakih 3s
+- THROTTLE_SECONDS = 10.0  → dodaj embedding max jednom svakih 3s
                              za istu osobu (isti klaster)
 """
 
@@ -30,12 +30,12 @@ CROPS_DIR = Path(__file__).parent / "unknown_crops"
 CROPS_DIR.mkdir(exist_ok=True)
 
 KNOWN_EXCLUSION_THRESHOLD = 0.3
-THROTTLE_SECONDS = 3.0
+THROTTLE_SECONDS = 10.0
 
 
 class UnknownPersonClustering:
 
-    def __init__(self, eps: float = 0.4, min_samples: int = 2):
+    def __init__(self, eps: float = 0.4, min_samples: int = 5):
         self.eps = eps
         self.min_samples = min_samples
 
