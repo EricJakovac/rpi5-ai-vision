@@ -6,6 +6,16 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.234:8000'
 export default function KnownPersons({ refreshKey }) {
   const [persons, setPersons] = useState([])
   const [deleting, setDeleting] = useState({})
+  const [crops, setCrops] = useState({})
+
+  const fetchCrop = async (name) => {
+    try {
+      const res = await axios.get(`${API_URL}/persons/${encodeURIComponent(name)}/crop`)
+      if (res.data.success && res.data.crop) {
+        setCrops(prev => ({ ...prev, [name]: res.data.crop }))
+      }
+    } catch {}
+  }
 
   const fetchPersons = () => {
     axios.get(`${API_URL}/persons`)
@@ -15,7 +25,7 @@ export default function KnownPersons({ refreshKey }) {
 
   useEffect(() => {
     fetchPersons()
-    const interval = setInterval(fetchPersons, 10000) 
+    const interval = setInterval(fetchPersons, 10000)
     return () => clearInterval(interval)
   }, [refreshKey])
 
@@ -32,6 +42,7 @@ export default function KnownPersons({ refreshKey }) {
     try {
       await axios.delete(`${API_URL}/persons/${encodeURIComponent(name)}`)
       setPersons(prev => prev.filter(p => p.name !== name))
+      setCrops(prev => { const n = { ...prev }; delete n[name]; return n })
     } catch (err) {
       console.error('Greška pri brisanju:', err)
     } finally {
@@ -52,8 +63,18 @@ export default function KnownPersons({ refreshKey }) {
       <div className="persons-list">
         {persons.map((person, i) => (
           <div key={i} className="person-card">
-            <div className="person-avatar">
-              {person.name.charAt(0).toUpperCase()}
+            <div className="person-avatar-wrap">
+              {crops[person.name] ? (
+                <img
+                  src={`data:image/jpeg;base64,${crops[person.name]}`}
+                  alt={person.name}
+                  className="person-avatar-img"
+                />
+              ) : (
+                <div className="person-avatar">
+                  {person.name.charAt(0).toUpperCase()}
+                </div>
+              )}
             </div>
             <div className="person-info">
               <span className="person-name">{person.name}</span>

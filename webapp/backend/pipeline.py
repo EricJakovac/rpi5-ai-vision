@@ -514,3 +514,7 @@ class InferencePipeline:
     def get_cluster_crop(self, cluster_id: int) -> str | None:
         """Vrati base64 crop slike za klaster."""
         return self._clustering.get_cluster_crop_b64(cluster_id)
+
+    def get_known_crop(self, name: str) -> str | None:
+        """Vrati base64 crop slike poznate osobe."""
+        return self._known_crops.get(name)
