@@ -29,6 +29,7 @@ IOU_THRESHOLD = 0.45
 SIMILARITY_THRESHOLD = 0.5
 CAM_WIDTH = 1280
 CAM_HEIGHT = 720
+MAX_UPDATES_PER_SESSION = 10
 
 DB_PATH = (
     Path(__file__).parent.parent.parent / "ai" / "recognition" / "face_database.json"
@@ -102,6 +103,7 @@ class InferencePipeline:
         print("✅ DBSCAN clustering inicijaliziran")
 
         self._start_time = time.time()
+        self._embedding_counters = {}
 
     def _load_face_db(self):
         # Očisti staru bazu PRIJE učitavanja
@@ -202,6 +204,8 @@ class InferencePipeline:
             return []
 
         input_dtype = input_details[0]["dtype"]
+        input_shape = input_details[0]["shape"]
+
         img = (
             np.array(
                 PILImage.fromarray(frame).resize((IMAGE_SIZE, IMAGE_SIZE)),
@@ -209,7 +213,14 @@ class InferencePipeline:
             )
             / 255.0
         )
-        img = np.expand_dims(img, axis=0)
+
+        # Auto-detektiraj BCHW vs BHWC
+        if input_shape[1] == 3:
+            # BCHW – fine-tuned v2 modeli
+            img = np.expand_dims(img.transpose(2, 0, 1), axis=0)
+        else:
+            # BHWC – pretrained modeli
+            img = np.expand_dims(img, axis=0)
 
         if input_dtype == np.int8:
             scale, zero_point = input_details[0]["quantization"]
@@ -246,18 +257,34 @@ class InferencePipeline:
         return self._postprocess_yolov8(output[0], tflite=False)
 
     def _postprocess_yolov8(self, output, tflite=False) -> list:
-        predictions = output[0].T
-        persons_mask = (np.argmax(predictions[:, 4:], axis=1) == 0) & (
-            np.max(predictions[:, 4:], axis=1) > CONF_THRESHOLD
-        )
-        persons = predictions[persons_mask]
-        if len(persons) == 0:
-            return []
+        out_shape = output.shape  # (1, 84, 8400) ili (1, 5, 8400)
+        pred = output[0]
 
-        boxes = persons[:, :4]
-        scores = np.max(persons[:, 4:], axis=1)
+        # nc=1 fine-tuned model: (5, 8400) → [cx,cy,w,h,score]
+        if pred.shape[0] == 5:
+            pred = pred.T  # (8400, 5)
+            scores = pred[:, 4]
+            mask = scores > CONF_THRESHOLD
+            pred = pred[mask]
+            if len(pred) == 0:
+                return []
+            boxes = pred[:, :4]
+            scores = pred[:, 4]
+
+        # nc=80 pretrained model: (84, 8400) → [cx,cy,w,h, 80 klasa]
+        else:
+            pred = pred.T  # (8400, 84)
+            scores = np.max(pred[:, 4:], axis=1)
+            classes = np.argmax(pred[:, 4:], axis=1)
+            mask = (classes == 0) & (scores > CONF_THRESHOLD)
+            pred = pred[mask]
+            if len(pred) == 0:
+                return []
+            boxes = pred[:, :4]
+            scores = np.max(pred[:, 4:], axis=1)
+
         keep = nms(boxes, scores, IOU_THRESHOLD)
-        return [(persons[i, :4], float(scores[i])) for i in keep]
+        return [(pred[i, :4], float(scores[i])) for i in keep]
 
     # ─── Prepoznavanje ───────────────────────────────────────────────────────
 
@@ -380,34 +407,37 @@ class InferencePipeline:
         """Dodaj novi embedding u running average za poznatu osobu."""
         if name not in self._persons:
             return
-        
-        # Učitaj trenutni broj slika
-        if DB_PATH.exists():
-            with open(DB_PATH) as f:
-                db = json.load(f)
-            
-            person_data = db["persons"].get(name, {})
-            n = person_data.get("num_images", 1)
-            
-            # Running average: novo = (staro * n + novo) / (n + 1)
-            current = self._persons[name]
-            norm_new = new_embedding / np.linalg.norm(new_embedding)
-            
-            updated = (current * n + norm_new) / (n + 1)
-            updated = updated / np.linalg.norm(updated)
-            
-            # Spremi u memoriju
-            self._persons[name] = updated
-            
-            # Spremi u JSON svake 10 novih slika
-            new_n = n + 1
-            if new_n % 10 == 0:
+
+        # Provjeri session limit
+        session_count = self._embedding_counters.get(name, 0)
+        if session_count >= MAX_UPDATES_PER_SESSION:
+            return
+
+        # Inkrementiraj brojač
+        self._embedding_counters[name] = session_count + 1
+        count = session_count + 1
+
+        # Running average u memoriji
+        current = self._persons[name]
+        norm_new = new_embedding / np.linalg.norm(new_embedding)
+        updated = (current * count + norm_new) / (count + 1)
+        updated = updated / np.linalg.norm(updated)
+
+        # Spremi u memoriju
+        self._persons[name] = updated
+
+        # Spremi u JSON svake 10 poziva (jednom po sesiji)
+        if count % 10 == 0:
+            if DB_PATH.exists():
+                with open(DB_PATH) as f:
+                    db = json.load(f)
+                n = db["persons"].get(name, {}).get("num_images", 0)
                 db["persons"][name]["embedding"] = updated.tolist()
-                db["persons"][name]["num_images"] = new_n
+                db["persons"][name]["num_images"] = n + 10
                 with open(DB_PATH, "w") as f:
                     json.dump(db, f, indent=2)
-                print(f"✅ Auto-update embedding: {name} ({new_n} slika)")
-
+                print(f"✅ Auto-update embedding: {name} ({n + 10} slika)")
+        
     # ─── Metrike ─────────────────────────────────────────────────────────────
 
     def _get_temperature(self) -> float:

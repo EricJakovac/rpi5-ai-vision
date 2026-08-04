@@ -14,7 +14,7 @@ MODELS_DIR = Path(__file__).parent.parent.parent / "ai" / "detection" / "models"
 # Dostupni modeli s metapodacima iz naših benchmarkova
 AVAILABLE_MODELS = [
     {
-        "name": "YOLOv8n v2 TFLite INT8",
+        "name": "YOLOv8n v2 TFLite INT8 ⚡",
         "filename": "yolov8n_v2_ft_int8.tflite",
         "format": "tflite",
         "quantization": "int8",
